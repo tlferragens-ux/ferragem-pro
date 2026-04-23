@@ -349,7 +349,7 @@
       <div class="logo">F</div>
       <div>
         <h1>FERRAGEM PRO</h1>
-        <div class="sub">Sistema de orçamentos · v3.8</div>
+        <div class="sub">Sistema de orçamentos · v3.9</div>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -565,6 +565,31 @@
         <input type="number" id="orcDesconto" step="1" min="0" placeholder="Ex: 50" oninput="atualizarTotalComDesconto()">
         <div style="font-size:11px;color:var(--muted);margin-top:6px">
           💡 O desconto aparece já aplicado no TOTAL final do PDF (cliente não vê o subtotal).
+        </div>
+      </div>
+
+      <div class="card" style="background:var(--panel-2);margin-top:12px;margin-bottom:0;border-color:#4a3a20">
+        <label>🔒 Proteção de detalhes técnicos <span class="opcional">(opcional)</span></label>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
+          Oculta especificações (ferros, estribos, medidas) no PDF enviado ao cliente.
+          Vigas, pilares, esperas e sapatas aparecem só com tamanho e valor.
+          <b>Totalmente reversível</b> — desative quando fechar a venda pra ter todos os detalhes de volta.
+        </div>
+        <div class="row-flex" style="gap:8px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0">
+            <input type="checkbox" id="orcProtegido" onchange="atualizarProtecaoPreview()" style="width:18px;height:18px;cursor:pointer">
+            <span style="font-weight:700;color:var(--accent-2)">Ocultar detalhes no PDF</span>
+          </label>
+        </div>
+        <div id="orcProtegidoOpcoes" style="display:none;margin-top:12px">
+          <label style="font-size:12px;margin-bottom:4px">Texto a exibir no lugar da descrição:</label>
+          <select id="orcProtegidoTexto" style="width:100%">
+            <option value="projeto">Conforme o projeto</option>
+            <option value="especificacoes">Conforme especificações do cliente</option>
+          </select>
+          <div id="orcProtegidoAviso" style="margin-top:10px;padding:10px;background:rgba(245,166,35,.12);border-left:3px solid #f5a623;border-radius:4px;font-size:12px;color:#ffc56b">
+            ⚠️ Lembre-se de <b>desativar</b> antes de gerar o PDF de produção/Conta Azul, pra não perder os detalhes técnicos.
+          </div>
         </div>
       </div>
 
@@ -1776,6 +1801,14 @@ function renderItensOrcamento(){
   atualizarTotalComDesconto();
 }
 
+// Quando usuário marca/desmarca "ocultar detalhes", mostra/esconde opções
+function atualizarProtecaoPreview(){
+  const chk = document.getElementById('orcProtegido');
+  const opcoes = document.getElementById('orcProtegidoOpcoes');
+  if(!chk || !opcoes) return;
+  opcoes.style.display = chk.checked ? '' : 'none';
+}
+
 // Calcula e exibe o total já com desconto aplicado
 function atualizarTotalComDesconto(){
   const subtotal = window._subtotalAtual || 0;
@@ -1813,6 +1846,9 @@ function limparOrcamento(){
   document.getElementById('orcObs').value = '';
   document.getElementById('orcEntrega').value = '';
   document.getElementById('orcDesconto').value = '';
+  document.getElementById('orcProtegido').checked = false;
+  document.getElementById('orcProtegidoTexto').value = 'projeto';
+  atualizarProtecaoPreview();
   renderItensOrcamento();
 }
 
@@ -1821,22 +1857,38 @@ function limparOrcamento(){
 // Endereço de entrega é guardado dentro do campo "observacoes"
 // usando um marcador especial ###ENTREGA### pra separar
 // ====================================================
-function montarObservacoes(obs, entrega){
+function montarObservacoes(obs, entrega, protegido, protegidoTexto){
   let final = '';
   if(entrega && entrega.trim()) final += '###ENTREGA###' + entrega.trim() + '###FIMENTREGA###';
+  if(protegido) final += '###PROTEGIDO###' + (protegidoTexto || 'projeto') + '###FIMPROTEGIDO###';
   if(obs && obs.trim()) final += obs.trim();
   return final || null;
 }
 
 function extrairEntregaEObs(textoSalvo){
-  if(!textoSalvo) return {entrega:'', obs:''};
-  const match = textoSalvo.match(/###ENTREGA###([\s\S]*?)###FIMENTREGA###/);
-  if(match){
-    const entrega = match[1];
-    const obs = textoSalvo.replace(match[0], '').trim();
-    return {entrega, obs};
+  if(!textoSalvo) return {entrega:'', obs:'', protegido:false, protegidoTexto:'projeto'};
+
+  let limpo = textoSalvo;
+  let entrega = '';
+  let protegido = false;
+  let protegidoTexto = 'projeto';
+
+  // Extrai entrega
+  const matchEntrega = limpo.match(/###ENTREGA###([\s\S]*?)###FIMENTREGA###/);
+  if(matchEntrega){
+    entrega = matchEntrega[1];
+    limpo = limpo.replace(matchEntrega[0], '').trim();
   }
-  return {entrega:'', obs:textoSalvo};
+
+  // Extrai proteção
+  const matchProt = limpo.match(/###PROTEGIDO###([\s\S]*?)###FIMPROTEGIDO###/);
+  if(matchProt){
+    protegido = true;
+    protegidoTexto = matchProt[1] || 'projeto';
+    limpo = limpo.replace(matchProt[0], '').trim();
+  }
+
+  return {entrega, obs: limpo, protegido, protegidoTexto};
 }
 
 async function salvarOrcamento(){
@@ -1849,7 +1901,9 @@ async function salvarOrcamento(){
   const total = Math.max(0, subtotal - desconto);
   const obs = document.getElementById('orcObs').value;
   const entrega = document.getElementById('orcEntrega').value;
-  const observacoesFinais = montarObservacoes(obs, entrega);
+  const protegido = document.getElementById('orcProtegido').checked;
+  const protegidoTexto = document.getElementById('orcProtegidoTexto').value;
+  const observacoesFinais = montarObservacoes(obs, entrega, protegido, protegidoTexto);
 
   try{
     let orcId;
@@ -1911,6 +1965,9 @@ async function salvarOrcamento(){
     document.getElementById('orcObs').value = '';
     document.getElementById('orcEntrega').value = '';
     document.getElementById('orcDesconto').value = '';
+    document.getElementById('orcProtegido').checked = false;
+    document.getElementById('orcProtegidoTexto').value = 'projeto';
+    atualizarProtecaoPreview();
     document.getElementById('orcStatusPill').textContent = 'Novo orçamento';
     document.getElementById('orcStatusPill').className = 'pill';
     renderItensOrcamento();
@@ -2135,7 +2192,10 @@ function renderOrcamentoDetalhe(orc, itens){
   }).join('');
 
   // Separa entrega das observações
-  const {entrega, obs} = extrairEntregaEObs(orc.observacoes);
+  const {entrega, obs, protegido, protegidoTexto} = extrairEntregaEObs(orc.observacoes);
+  const textoProtegido = protegidoTexto === 'especificacoes'
+    ? 'Conforme especificações do cliente'
+    : 'Conforme o projeto';
 
   return `
     <div style="margin-bottom:16px">
@@ -2143,6 +2203,12 @@ function renderOrcamentoDetalhe(orc, itens){
       <div style="font-size:18px;font-weight:700;margin-bottom:6px">${orc.cliente_nome || 'Cliente avulso'}</div>
       <div style="color:var(--muted);font-size:13px">Criado em ${fmtData(orc.criado_em)}</div>
     </div>
+
+    ${protegido ? `
+      <div style="background:linear-gradient(90deg,rgba(245,166,35,.15),transparent);border:1px solid #f5a623;border-left:4px solid #f5a623;border-radius:8px;padding:10px 14px;margin:0 0 16px;font-size:13px">
+        🔒 <b style="color:#ffc56b">Proteção de detalhes ATIVA</b> — no PDF vai aparecer só "${textoProtegido}" no lugar das especificações técnicas.
+      </div>
+    ` : ''}
 
     ${entrega ? `<div class="card" style="background:var(--panel-2);margin:0 0 16px;border-color:#23354d"><label style="color:var(--blue)">📍 Endereço de entrega</label><div>${entrega}</div></div>` : ''}
 
@@ -2284,10 +2350,13 @@ function carregarOrcamentoNoFormulario(orc, itens, ehEdicao){
     };
   });
   document.getElementById('orcCliente').value = orc.cliente_id || '';
-  const {entrega, obs} = extrairEntregaEObs(orc.observacoes);
+  const {entrega, obs, protegido, protegidoTexto} = extrairEntregaEObs(orc.observacoes);
   document.getElementById('orcEntrega').value = entrega || '';
   document.getElementById('orcObs').value = obs || '';
   document.getElementById('orcDesconto').value = (orc.desconto && parseFloat(orc.desconto) > 0) ? parseFloat(orc.desconto).toFixed(2) : '';
+  document.getElementById('orcProtegido').checked = !!protegido;
+  document.getElementById('orcProtegidoTexto').value = protegidoTexto || 'projeto';
+  atualizarProtecaoPreview();
 
   if(ehEdicao){
     // Edição: mantém o ID para substituir o original ao salvar
@@ -3190,8 +3259,8 @@ function gerarPDF(){
   doc.text(orc.cliente_nome || 'Cliente avulso', 14, y);
   y += 8;
 
-  // ENDEREÇO DE ENTREGA (se houver)
-  const {entrega, obs} = extrairEntregaEObs(orc.observacoes);
+  // ENDEREÇO DE ENTREGA (se houver) + modo proteção
+  const {entrega, obs, protegido, protegidoTexto} = extrairEntregaEObs(orc.observacoes);
   if(entrega){
     y += 4;
     // caixa azul claro de fundo
@@ -3234,7 +3303,13 @@ function gerarPDF(){
     const tipo = it.tipo_produto || 'viga';
     let desc1, desc2, desc3, qtdTexto;
 
+    // Texto que substitui os detalhes quando proteção está ativa
+    const textoProtegido = protegidoTexto === 'especificacoes'
+      ? 'Conforme especificações do cliente'
+      : 'Conforme o projeto';
+
     if(tipo === 'produto'){
+      // Produto manual nunca é protegido (já é descrição simples do cliente)
       desc1 = it.produto_nome || 'Produto';
       desc2 = `Valor unitário: ${fmt(it.preco_unitario)}`;
       desc3 = '';
@@ -3242,19 +3317,28 @@ function gerarPDF(){
     } else if(tipo === 'sapata'){
       const qtdSapatas = it.quantidade || 1;
       desc1 = `Sapata ${it.sapata_tamanho_cm}×${it.sapata_tamanho_cm}cm`;
-      desc2 = `${it.sapata_qtd_pecas} ferros ${it.sapata_bitola}mm`;
+      if(protegido){
+        desc2 = textoProtegido;
+      }else{
+        desc2 = `${it.sapata_qtd_pecas} ferros ${it.sapata_bitola}mm`;
+      }
       desc3 = '';
       qtdTexto = String(qtdSapatas);
     } else {
       // Viga, Pilar ou Espera de Pilar (mesmo formato, nomes diferentes)
-      const ferrosTxt = it.ferros_longitudinais.map(f=>`${f.qtd}×${f.bitola}mm`).join(' + ');
       const nomePDF =
         tipo === 'pilar' ? 'Pilar' :
         tipo === 'espera' ? 'Espera de Pilar' :
         'Viga';
       desc1 = `${nomePDF} ${it.tamanho_metros}MT`;
-      desc2 = `Ferros: ${ferrosTxt}`;
-      desc3 = `Estribos ${it.estribo_largura_cm}×${it.estribo_altura_cm}cm no ${it.estribo_bitola}mm a cada ${it.estribo_espacamento_cm}cm`;
+      if(protegido){
+        desc2 = textoProtegido;
+        desc3 = '';
+      }else{
+        const ferrosTxt = it.ferros_longitudinais.map(f=>`${f.qtd}×${f.bitola}mm`).join(' + ');
+        desc2 = `Ferros: ${ferrosTxt}`;
+        desc3 = `Estribos ${it.estribo_largura_cm}×${it.estribo_altura_cm}cm no ${it.estribo_bitola}mm a cada ${it.estribo_espacamento_cm}cm`;
+      }
       qtdTexto = String(it.quantidade);
     }
 
