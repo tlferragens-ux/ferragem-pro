@@ -298,7 +298,7 @@
       <div class="logo">F</div>
       <div>
         <h1>FERRAGEM PRO</h1>
-        <div class="sub">Sistema de orçamentos · v3.6</div>
+        <div class="sub">Sistema de orçamentos · v3.6.1</div>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -2672,12 +2672,24 @@ async function excluirConta(id){
 // ZXing é especializado em códigos de barras lineares (ITF, Code 128, etc)
 // que é o que os boletos brasileiros usam (não QR Code).
 let scannerZXing = null;
+let scannerStream = null;
 
 async function abrirScanner(){
   document.getElementById('modalScanner').classList.add('show');
   document.getElementById('scannerStatus').textContent = 'Iniciando câmera...';
-  document.getElementById('scannerArea').innerHTML =
-    '<video id="scannerVideo" style="width:100%;height:auto;display:block" autoplay muted playsinline></video>';
+
+  // Estrutura HTML do scanner com mira visual horizontal
+  document.getElementById('scannerArea').innerHTML = `
+    <div style="position:relative;background:#000;border-radius:8px;overflow:hidden">
+      <video id="scannerVideo" style="width:100%;height:auto;display:block;max-height:400px;object-fit:cover" autoplay muted playsinline></video>
+      <!-- Mira: linha vermelha horizontal no meio -->
+      <div style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;display:flex;align-items:center;justify-content:center">
+        <div style="width:90%;height:60px;border:2px solid #ff6b1a;border-radius:6px;box-shadow:0 0 0 9999px rgba(0,0,0,0.4);position:relative">
+          <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:#ff3b3b;box-shadow:0 0 8px #ff3b3b"></div>
+        </div>
+      </div>
+    </div>
+  `;
 
   try{
     // Verifica se está em https ou localhost (requisito da câmera)
@@ -2687,40 +2699,65 @@ async function abrirScanner(){
       return;
     }
 
-    // Configura hints pra priorizar formatos de boleto (ITF e Code 128)
-    const ZXingNS = window.ZXing || window.ZXingBrowser;
-    const codeReader = new ZXingNS.BrowserMultiFormatReader();
+    // === ABRIR CÂMERA EM ALTA RESOLUÇÃO COM FOCO CONTÍNUO ===
+    // Isso é crítico pra ler boletos: o código tem barras finas que precisam de boa resolução
+    const constraints = {
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },  // câmera traseira
+        width: { ideal: 1920, min: 1280 },     // alta resolução
+        height: { ideal: 1080, min: 720 },
+        focusMode: { ideal: 'continuous' },    // foco automático contínuo
+        advanced: [
+          { focusMode: 'continuous' },
+          { exposureMode: 'continuous' },
+          { whiteBalanceMode: 'continuous' }
+        ]
+      }
+    };
 
-    // Limita aos formatos que importam pra boleto (acelera detecção)
+    scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
+    const video = document.getElementById('scannerVideo');
+    video.srcObject = scannerStream;
+    await video.play();
+
+    // Tenta aplicar zoom 1.5x se a câmera suportar (ajuda em códigos pequenos)
+    try{
+      const track = scannerStream.getVideoTracks()[0];
+      const cap = track.getCapabilities ? track.getCapabilities() : {};
+      if(cap.zoom){
+        const zoomDesejado = Math.min(cap.zoom.max, Math.max(cap.zoom.min, 2));
+        await track.applyConstraints({ advanced: [{ zoom: zoomDesejado }] });
+      }
+    }catch(e){ /* zoom não suportado, ignora */ }
+
+    // === CONFIGURA ZXING ===
+    const ZXingNS = window.ZXing || window.ZXingBrowser;
     const hints = new Map();
     const formats = [
-      ZXingNS.BarcodeFormat.ITF,         // Boleto bancário usa este!
+      ZXingNS.BarcodeFormat.ITF,         // Boleto bancário (ESSENCIAL)
       ZXingNS.BarcodeFormat.CODE_128,    // Boleto de arrecadação
-      ZXingNS.BarcodeFormat.CODE_39
+      ZXingNS.BarcodeFormat.CODE_39,
+      ZXingNS.BarcodeFormat.EAN_13       // por garantia
     ];
     hints.set(ZXingNS.DecodeHintType.POSSIBLE_FORMATS, formats);
     hints.set(ZXingNS.DecodeHintType.TRY_HARDER, true);
-    codeReader.hints = hints;
 
+    const codeReader = new ZXingNS.BrowserMultiFormatReader(hints);
     scannerZXing = codeReader;
 
-    // Pega a câmera traseira preferencialmente
-    const devices = await codeReader.listVideoInputDevices();
-    let deviceId = null;
-    if(devices && devices.length > 0){
-      // Procura câmera traseira pelo nome
-      const back = devices.find(d => /back|traseira|rear|environment/i.test(d.label));
-      deviceId = back ? back.deviceId : devices[devices.length-1].deviceId;
-    }
+    document.getElementById('scannerStatus').innerHTML =
+      '🔴 Centralize o código de barras na linha vermelha';
 
-    document.getElementById('scannerStatus').textContent = '🔍 Aponte para o código de barras do boleto...';
-
-    await codeReader.decodeFromVideoDevice(deviceId, 'scannerVideo', (result, err) => {
+    // Decodifica direto do elemento video (já com stream conectado)
+    codeReader.decodeFromVideoElement(video, (result, err) => {
       if(result){
+        // Vibra o celular pra avisar (se suportar)
+        if(navigator.vibrate) navigator.vibrate(200);
         const texto = result.getText();
         aoLerCodigoBarras(texto);
       }
-      // erros silenciosos por frame, ignora (NotFoundException é normal)
+      // erros silenciosos por frame (NotFoundException é normal)
     });
 
   }catch(e){
@@ -2733,6 +2770,10 @@ async function fecharScanner(){
   if(scannerZXing){
     try{ scannerZXing.reset(); }catch(e){}
     scannerZXing = null;
+  }
+  if(scannerStream){
+    try{ scannerStream.getTracks().forEach(t=>t.stop()); }catch(e){}
+    scannerStream = null;
   }
   document.getElementById('modalScanner').classList.remove('show');
 }
