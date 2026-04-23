@@ -349,7 +349,7 @@
       <div class="logo">F</div>
       <div>
         <h1>FERRAGEM PRO</h1>
-        <div class="sub">Sistema de orçamentos · v3.7</div>
+        <div class="sub">Sistema de orçamentos · v3.8</div>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -395,15 +395,11 @@
       <h2>Tipo de produto</h2>
       <div class="desc">Escolha o que você está orçando. Pode misturar vários produtos no mesmo orçamento.</div>
       <div class="produto-tabs">
-        <button class="active" data-produto="viga" onclick="selecionarProduto('viga')">
-          <span class="tab-icon">🔩</span> Viga
-        </button>
-        <button data-produto="sapata" onclick="selecionarProduto('sapata')">
-          <span class="tab-icon">⚓</span> Sapata
-        </button>
-        <button data-produto="produto" onclick="selecionarProduto('produto')">
-          <span class="tab-icon">📦</span> Produtos
-        </button>
+        <button class="active" data-produto="viga" onclick="selecionarProduto('viga')">Viga</button>
+        <button data-produto="pilar" onclick="selecionarProduto('pilar')">Pilar</button>
+        <button data-produto="espera" onclick="selecionarProduto('espera')">Espera de Pilar</button>
+        <button data-produto="sapata" onclick="selecionarProduto('sapata')">Sapata</button>
+        <button data-produto="produto" onclick="selecionarProduto('produto')">Produtos</button>
       </div>
     </div>
 
@@ -1208,10 +1204,16 @@ function selecionarProduto(tipo){
   document.querySelectorAll('.produto-tabs button').forEach(b=>{
     b.classList.toggle('active', b.dataset.produto===tipo);
   });
-  // Mostra/esconde formulários
-  document.getElementById('formViga').classList.toggle('hidden', tipo!=='viga');
+  // Pilar e Espera de Pilar usam o MESMO formulário da Viga (mesmo cálculo)
+  // Só muda o nome que aparece no produto final
+  const ehViga = (tipo==='viga' || tipo==='pilar' || tipo==='espera');
+  document.getElementById('formViga').classList.toggle('hidden', !ehViga);
   document.getElementById('formSapata').classList.toggle('hidden', tipo!=='sapata');
   document.getElementById('formProduto').classList.toggle('hidden', tipo!=='produto');
+
+  // Ajusta títulos do formulário conforme o tipo selecionado
+  atualizarTitulosForm(tipo);
+
   // Limpa resultado e desabilita botão de adicionar
   document.getElementById('resultado').innerHTML='';
   document.getElementById('btnAddItem').disabled = true;
@@ -1222,11 +1224,32 @@ function selecionarProduto(tipo){
   }
 }
 
+// Muda os textos do formulário pra refletir o produto (viga/pilar/espera)
+function atualizarTitulosForm(tipo){
+  const nomes = {
+    viga: {titulo:'Tamanho da viga', qtd:'Quantidade de vigas iguais'},
+    pilar: {titulo:'Tamanho do pilar', qtd:'Quantidade de pilares iguais'},
+    espera: {titulo:'Tamanho da espera de pilar', qtd:'Quantidade de esperas iguais'}
+  };
+  const n = nomes[tipo];
+  if(!n) return;
+  const h = document.querySelector('#formViga h2');
+  if(h) h.innerHTML = `<span class="num">1</span> ${n.titulo}`;
+  const labelQtd = document.querySelector('#formViga label[for="vigaQtd"], #formViga [data-label-qtd]');
+  // Atualiza label da quantidade buscando pelo input
+  const inputQtd = document.getElementById('vigaQtd');
+  if(inputQtd && inputQtd.previousElementSibling){
+    inputQtd.previousElementSibling.textContent = n.qtd;
+  }
+}
+
 // ====================================================
 // CALCULAR
 // ====================================================
 function calcular(){
-  if(tipoProduto === 'viga') return calcularViga();
+  if(tipoProduto === 'viga' || tipoProduto === 'pilar' || tipoProduto === 'espera'){
+    return calcularViga();
+  }
   if(tipoProduto === 'sapata') return calcularSapata();
   if(tipoProduto === 'produto') return calcularProduto();
 }
@@ -1299,25 +1322,35 @@ function calcularViga(){
   const reais = Math.floor(precoTotal);
   const cents = Math.round((precoTotal-reais)*100).toString().padStart(2,'0');
 
+  // Nome do produto baseado no tipo selecionado
+  const nomeUnit =
+    tipoProduto === 'pilar' ? 'pilar' :
+    tipoProduto === 'espera' ? 'espera' :
+    'viga';
+  const nomePlural =
+    tipoProduto === 'pilar' ? 'pilares' :
+    tipoProduto === 'espera' ? 'esperas' :
+    'vigas';
+
   document.getElementById('resultado').innerHTML = `
     <div class="result">
-      <div class="result-title">Preço final ${qtdVigas>1?`(${qtdVigas} vigas)`:''}</div>
+      <div class="result-title">Preço final ${qtdVigas>1?`(${qtdVigas} ${nomePlural})`:''}</div>
       <div class="result-value">R$ ${reais.toLocaleString('pt-BR')}<span class="cents">,${cents}</span></div>
       <div class="result-meta">
         <div class="meta-item">Por metro<b>${fmt(precoPorMetro)}</b></div>
-        <div class="meta-item">Por viga (${tam}m)<b>${fmt(precoUnit)}</b></div>
-        <div class="meta-item">Estribos / viga<b>${qtdEstribosReais} un</b></div>
+        <div class="meta-item">Por ${nomeUnit} (${tam}m)<b>${fmt(precoUnit)}</b></div>
+        <div class="meta-item">Estribos / ${nomeUnit}<b>${qtdEstribosReais} un</b></div>
       </div>
     </div>
     <div class="breakdown">
-      <div style="color:var(--accent-2);font-weight:700;margin-bottom:10px;letter-spacing:.5px">DETALHAMENTO (base: viga 12m)</div>
+      <div style="color:var(--accent-2);font-weight:700;margin-bottom:10px;letter-spacing:.5px">DETALHAMENTO (base: ${nomeUnit} 12m)</div>
       ${detLong.map(d=>`<div class="breakdown-row"><span>${d.qtd}× ferro ${d.bitola}mm × ${fmt(d.preco)}</span><span>${fmt(d.sub)}</span></div>`).join('')}
       <div class="breakdown-row"><span>${qtdEstribos12} estribos ${eL}×${eA}cm em ${eB}mm</span><span>${fmt(custoEstribos12)}</span></div>
-      <div class="breakdown-row total"><span>Custo viga 12m</span><span>${fmt(custoTotal12)}</span></div>
+      <div class="breakdown-row total"><span>Custo ${nomeUnit} 12m</span><span>${fmt(custoTotal12)}</span></div>
       <div class="breakdown-row"><span>+ Lucro ${lucroPct}%</span><span>${fmt(comLucro)}</span></div>
       <div class="breakdown-row"><span>+ Nota ${notaPct}%</span><span>${fmt(comNota)}</span></div>
       <div class="breakdown-row"><span>÷ 12m × ${tam}m</span><span>${fmt(precoUnit)}</span></div>
-      ${qtdVigas>1?`<div class="breakdown-row total"><span>× ${qtdVigas} vigas</span><span>${fmt(precoTotal)}</span></div>`:''}
+      ${qtdVigas>1?`<div class="breakdown-row total"><span>× ${qtdVigas} ${nomePlural}</span><span>${fmt(precoTotal)}</span></div>`:''}
     </div>
   `;
 }
@@ -1608,10 +1641,18 @@ function adicionarAoOrcamento(){
   if(!ultimoCalculo.tipo_produto) ultimoCalculo.tipo_produto = tipoProduto;
   itensOrcamento.push({...ultimoCalculo});
   renderItensOrcamento();
-  const nomeTipo = tipoProduto==='sapata'?'Sapata' : (tipoProduto==='produto'?'Produto':'Viga');
+  const nomeTipo =
+    tipoProduto==='sapata' ? 'Sapata' :
+    tipoProduto==='produto' ? 'Produto' :
+    tipoProduto==='pilar' ? 'Pilar' :
+    tipoProduto==='espera' ? 'Espera de pilar' :
+    'Viga';
   toast(nomeTipo + ' adicionado ao orçamento ✓');
 
-  if(tipoProduto === 'viga'){
+  // Viga, Pilar e Espera compartilham o mesmo formulário
+  const ehViga = (tipoProduto === 'viga' || tipoProduto === 'pilar' || tipoProduto === 'espera');
+
+  if(ehViga){
     document.getElementById('vigaTamanho').value='';
     document.getElementById('vigaQtd').value=1;
     document.getElementById('estLarg').value='';
@@ -1647,10 +1688,14 @@ function renderItensOrcamento(){
   // Conta tipos de itens
   const totalItens = itensOrcamento.length;
   const nVigas = itensOrcamento.filter(it=>(it.tipo_produto||'viga')==='viga').length;
+  const nPilares = itensOrcamento.filter(it=>it.tipo_produto==='pilar').length;
+  const nEsperas = itensOrcamento.filter(it=>it.tipo_produto==='espera').length;
   const nSapatas = itensOrcamento.filter(it=>it.tipo_produto==='sapata').length;
   const nProdutos = itensOrcamento.filter(it=>it.tipo_produto==='produto').length;
   let partes = [];
   if(nVigas) partes.push(`${nVigas} viga${nVigas>1?'s':''}`);
+  if(nPilares) partes.push(`${nPilares} pilar${nPilares>1?'es':''}`);
+  if(nEsperas) partes.push(`${nEsperas} espera${nEsperas>1?'s':''}`);
   if(nSapatas) partes.push(`${nSapatas} sapata${nSapatas>1?'s':''}`);
   if(nProdutos) partes.push(`${nProdutos} produto${nProdutos>1?'s':''}`);
   let label = partes.length ? partes.join(' + ') : (totalItens + (totalItens===1?' item':' itens'));
@@ -1667,7 +1712,7 @@ function renderItensOrcamento(){
         <div class="item-card">
           <div class="item-card-header">
             <div>
-              <div class="item-card-title">📦 ${it.produto_nome}</div>
+              <div class="item-card-title">${it.produto_nome}</div>
               <div class="item-card-detail">${it.quantidade} ${it.produto_unidade||'peça'} × ${fmt(it.preco_unitario)}</div>
             </div>
             <div style="text-align:right">
@@ -1688,7 +1733,7 @@ function renderItensOrcamento(){
         <div class="item-card">
           <div class="item-card-header">
             <div>
-              <div class="item-card-title">⚓ ${qtdSapatas>1?qtdSapatas+'× ':''}Sapata ${it.sapata_tamanho_cm}cm</div>
+              <div class="item-card-title">${qtdSapatas>1?qtdSapatas+'× ':''}Sapata ${it.sapata_tamanho_cm}cm</div>
               <div class="item-card-detail">${it.sapata_qtd_pecas} ferros de ${it.sapata_bitola}mm por sapata · Dobra ${it.sapata_dobra_cm||0}cm cada ponta</div>
               <div class="item-card-detail">Ferro por sapata: ${metrosPorSapata.toFixed(2)}m · Total: ${metrosTotais.toFixed(2)}m</div>
             </div>
@@ -1701,13 +1746,17 @@ function renderItensOrcamento(){
       `;
     }
 
-    // Viga (default)
+    // Viga / Pilar / Espera de Pilar (usam o mesmo formato, só muda o nome)
     const ferrosTxt = it.ferros_longitudinais.map(f=>`${f.qtd}×${f.bitola}mm`).join(' + ');
+    const nomeProd =
+      tipo === 'pilar' ? 'Pilar' :
+      tipo === 'espera' ? 'Espera de Pilar' :
+      'Viga';
     return `
       <div class="item-card">
         <div class="item-card-header">
           <div>
-            <div class="item-card-title">🔩 ${it.quantidade>1?it.quantidade+'× ':''}Viga ${it.tamanho_metros}m</div>
+            <div class="item-card-title">${it.quantidade>1?it.quantidade+'× ':''}${nomeProd} ${it.tamanho_metros}m</div>
             <div class="item-card-detail">Ferros: ${ferrosTxt}</div>
             <div class="item-card-detail">Estribos: ${it.estribo_largura_cm}×${it.estribo_altura_cm}cm no ${it.estribo_bitola}mm a cada ${it.estribo_espacamento_cm}cm (${it.qtd_estribos} un)</div>
           </div>
@@ -2037,7 +2086,7 @@ function renderOrcamentoDetalhe(orc, itens){
         <div class="item-card">
           <div class="item-card-header">
             <div>
-              <div class="item-card-title">📦 ${it.produto_nome}</div>
+              <div class="item-card-title">${it.produto_nome}</div>
               <div class="item-card-detail">${it.quantidade} ${it.produto_unidade||'peça'} × ${fmt(it.preco_unitario)}</div>
             </div>
             <div class="item-card-price">${fmt(it.preco_total)}</div>
@@ -2055,7 +2104,7 @@ function renderOrcamentoDetalhe(orc, itens){
         <div class="item-card">
           <div class="item-card-header">
             <div>
-              <div class="item-card-title">⚓ ${qtdSapatas>1?qtdSapatas+'× ':''}Sapata ${it.sapata_tamanho_cm}cm</div>
+              <div class="item-card-title">${qtdSapatas>1?qtdSapatas+'× ':''}Sapata ${it.sapata_tamanho_cm}cm</div>
               <div class="item-card-detail">${it.sapata_qtd_pecas} ferros de ${it.sapata_bitola}mm por sapata · Dobra ${it.sapata_dobra_cm||0}cm cada ponta</div>
               <div class="item-card-detail">Ferro por sapata: ${metrosPorSapata.toFixed(2)}m · Total: ${metrosTotais.toFixed(2)}m</div>
             </div>
@@ -2065,13 +2114,17 @@ function renderOrcamentoDetalhe(orc, itens){
       `;
     }
 
-    // Viga
+    // Viga / Pilar / Espera de Pilar
     const ferrosTxt = it.ferros_longitudinais.map(f=>`${f.qtd}×${f.bitola}mm`).join(' + ');
+    const nomeDetalhe =
+      tipo === 'pilar' ? 'Pilar' :
+      tipo === 'espera' ? 'Espera de Pilar' :
+      'Viga';
     return `
       <div class="item-card">
         <div class="item-card-header">
           <div>
-            <div class="item-card-title">🔩 ${it.quantidade>1?it.quantidade+'× ':''}Viga ${it.tamanho_metros}m</div>
+            <div class="item-card-title">${it.quantidade>1?it.quantidade+'× ':''}${nomeDetalhe} ${it.tamanho_metros}m</div>
             <div class="item-card-detail">Ferros: ${ferrosTxt}</div>
             <div class="item-card-detail">Estribos: ${it.estribo_largura_cm}×${it.estribo_altura_cm}cm no ${it.estribo_bitola}mm a cada ${it.estribo_espacamento_cm}cm</div>
           </div>
@@ -3193,9 +3246,13 @@ function gerarPDF(){
       desc3 = '';
       qtdTexto = String(qtdSapatas);
     } else {
-      // Viga
+      // Viga, Pilar ou Espera de Pilar (mesmo formato, nomes diferentes)
       const ferrosTxt = it.ferros_longitudinais.map(f=>`${f.qtd}×${f.bitola}mm`).join(' + ');
-      desc1 = `Viga ${it.tamanho_metros}MT`;
+      const nomePDF =
+        tipo === 'pilar' ? 'Pilar' :
+        tipo === 'espera' ? 'Espera de Pilar' :
+        'Viga';
+      desc1 = `${nomePDF} ${it.tamanho_metros}MT`;
       desc2 = `Ferros: ${ferrosTxt}`;
       desc3 = `Estribos ${it.estribo_largura_cm}×${it.estribo_altura_cm}cm no ${it.estribo_bitola}mm a cada ${it.estribo_espacamento_cm}cm`;
       qtdTexto = String(it.quantidade);
