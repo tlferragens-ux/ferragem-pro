@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 <style>
   :root{
     --bg:#0f1115;
@@ -298,7 +298,7 @@
       <div class="logo">F</div>
       <div>
         <h1>FERRAGEM PRO</h1>
-        <div class="sub">Sistema de orçamentos · v3.5.2</div>
+        <div class="sub">Sistema de orçamentos · v3.6</div>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -510,7 +510,18 @@
         <textarea id="orcObs" placeholder="Ex: frete não incluso, prazo de 5 dias úteis, pagamento à vista com 5% de desconto..."></textarea>
       </div>
 
+      <div class="card" style="background:var(--panel-2);margin-top:12px;margin-bottom:0">
+        <label>Desconto (R$) <span class="opcional">(opcional)</span></label>
+        <input type="number" id="orcDesconto" step="1" min="0" placeholder="Ex: 50" oninput="atualizarTotalComDesconto()">
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">
+          💡 O desconto aparece já aplicado no TOTAL final do PDF (cliente não vê o subtotal).
+        </div>
+      </div>
+
       <div class="result" style="margin-top:20px">
+        <div id="orcSubtotalLinha" style="display:none;font-size:13px;color:var(--muted);margin-bottom:6px">
+          Subtotal: <span id="orcSubtotalValor"></span> · Desconto: <span id="orcDescontoValor" style="color:#ff8a8a"></span>
+        </div>
         <div class="result-title">Total do orçamento</div>
         <div class="result-value" id="totalOrc">R$ 0<span class="cents">,00</span></div>
       </div>
@@ -848,7 +859,6 @@ let produtos = [];          // cache de produtos cadastrados
 let contas = [];            // cache de contas a pagar
 let fornecedores = [];      // cache de fornecedores cadastrados
 let filtroContasAtual = 'todas';
-let scannerHtml5 = null;    // instância do scanner ativo
 let orcamentoEditandoId = null;
 let saveTimeout = null;
 
@@ -1658,7 +1668,31 @@ function renderItensOrcamento(){
 
   const reais = Math.floor(total);
   const cents = Math.round((total-reais)*100).toString().padStart(2,'0');
+  // Guarda subtotal e aplica desconto
+  window._subtotalAtual = total;
+  atualizarTotalComDesconto();
+}
+
+// Calcula e exibe o total já com desconto aplicado
+function atualizarTotalComDesconto(){
+  const subtotal = window._subtotalAtual || 0;
+  const descontoInput = document.getElementById('orcDesconto');
+  const desconto = parseFloat(descontoInput ? descontoInput.value : 0) || 0;
+  const total = Math.max(0, subtotal - desconto);
+
+  const reais = Math.floor(total);
+  const cents = Math.round((total-reais)*100).toString().padStart(2,'0');
   document.getElementById('totalOrc').innerHTML = `R$ ${reais.toLocaleString('pt-BR')}<span class="cents">,${cents}</span>`;
+
+  // Mostra/esconde linha de subtotal
+  const linha = document.getElementById('orcSubtotalLinha');
+  if(desconto > 0 && linha){
+    linha.style.display = '';
+    document.getElementById('orcSubtotalValor').textContent = fmt(subtotal);
+    document.getElementById('orcDescontoValor').textContent = '- ' + fmt(desconto);
+  }else if(linha){
+    linha.style.display = 'none';
+  }
 }
 
 function removerItem(i){
@@ -1675,6 +1709,7 @@ function limparOrcamento(){
   document.getElementById('orcCliente').value = '';
   document.getElementById('orcObs').value = '';
   document.getElementById('orcEntrega').value = '';
+  document.getElementById('orcDesconto').value = '';
   renderItensOrcamento();
 }
 
@@ -1706,7 +1741,9 @@ async function salvarOrcamento(){
 
   const clienteId = document.getElementById('orcCliente').value || null;
   const cliente = clientes.find(c=>c.id==clienteId);
-  const total = itensOrcamento.reduce((s,it)=>s+parseFloat(it.preco_total),0);
+  const subtotal = itensOrcamento.reduce((s,it)=>s+parseFloat(it.preco_total),0);
+  const desconto = parseFloat(document.getElementById('orcDesconto').value) || 0;
+  const total = Math.max(0, subtotal - desconto);
   const obs = document.getElementById('orcObs').value;
   const entrega = document.getElementById('orcEntrega').value;
   const observacoesFinais = montarObservacoes(obs, entrega);
@@ -1718,6 +1755,7 @@ async function salvarOrcamento(){
         cliente_id: clienteId,
         cliente_nome: cliente ? cliente.nome : null,
         valor_total: total,
+        desconto: desconto,
         observacoes: observacoesFinais
       }).eq('id', orcamentoEditandoId);
       if(error) throw error;
@@ -1728,6 +1766,7 @@ async function salvarOrcamento(){
         cliente_id: clienteId,
         cliente_nome: cliente ? cliente.nome : null,
         valor_total: total,
+        desconto: desconto,
         observacoes: observacoesFinais
       }).select().single();
       if(error) throw error;
@@ -1768,6 +1807,7 @@ async function salvarOrcamento(){
     document.getElementById('orcCliente').value = '';
     document.getElementById('orcObs').value = '';
     document.getElementById('orcEntrega').value = '';
+    document.getElementById('orcDesconto').value = '';
     document.getElementById('orcStatusPill').textContent = 'Novo orçamento';
     document.getElementById('orcStatusPill').className = 'pill';
     renderItensOrcamento();
@@ -2004,6 +2044,11 @@ function renderOrcamentoDetalhe(orc, itens){
     ${obs ? `<div class="card" style="background:var(--panel-2);margin:0 0 16px"><label>Observações</label><div>${obs}</div></div>` : ''}
 
     <div class="result" style="margin:0 0 20px">
+      ${(orc.desconto && parseFloat(orc.desconto) > 0) ? `
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">
+          Subtotal: ${fmt(parseFloat(orc.valor_total) + parseFloat(orc.desconto))} · 
+          Desconto: <span style="color:#ff8a8a">- ${fmt(orc.desconto)}</span>
+        </div>` : ''}
       <div class="result-title">Valor total</div>
       <div class="result-value">${fmt(orc.valor_total)}</div>
     </div>
@@ -2135,6 +2180,7 @@ function carregarOrcamentoNoFormulario(orc, itens, ehEdicao){
   const {entrega, obs} = extrairEntregaEObs(orc.observacoes);
   document.getElementById('orcEntrega').value = entrega || '';
   document.getElementById('orcObs').value = obs || '';
+  document.getElementById('orcDesconto').value = (orc.desconto && parseFloat(orc.desconto) > 0) ? parseFloat(orc.desconto).toFixed(2) : '';
 
   if(ehEdicao){
     // Edição: mantém o ID para substituir o original ao salvar
@@ -2622,11 +2668,16 @@ async function excluirConta(id){
   }catch(e){ toast('Erro: '+e.message, 'error'); }
 }
 
-// --- Scanner de código de barras ---
+// --- Scanner de código de barras usando ZXing ---
+// ZXing é especializado em códigos de barras lineares (ITF, Code 128, etc)
+// que é o que os boletos brasileiros usam (não QR Code).
+let scannerZXing = null;
+
 async function abrirScanner(){
   document.getElementById('modalScanner').classList.add('show');
   document.getElementById('scannerStatus').textContent = 'Iniciando câmera...';
-  document.getElementById('scannerArea').innerHTML = '<div id="scannerVideo"></div>';
+  document.getElementById('scannerArea').innerHTML =
+    '<video id="scannerVideo" style="width:100%;height:auto;display:block" autoplay muted playsinline></video>';
 
   try{
     // Verifica se está em https ou localhost (requisito da câmera)
@@ -2636,26 +2687,42 @@ async function abrirScanner(){
       return;
     }
 
-    scannerHtml5 = new Html5Qrcode('scannerVideo');
-    const config = {
-      fps: 10,
-      qrbox: { width: 280, height: 100 },
-      aspectRatio: 1.7777
-    };
+    // Configura hints pra priorizar formatos de boleto (ITF e Code 128)
+    const ZXingNS = window.ZXing || window.ZXingBrowser;
+    const codeReader = new ZXingNS.BrowserMultiFormatReader();
 
-    await scannerHtml5.start(
-      { facingMode: 'environment' },  // câmera traseira
-      config,
-      (decodedText) => {
-        // Sucesso! Decodifica e preenche
-        aoLerCodigoBarras(decodedText);
-      },
-      (errorMessage) => {
-        // erros silenciosos por frame, ignora
+    // Limita aos formatos que importam pra boleto (acelera detecção)
+    const hints = new Map();
+    const formats = [
+      ZXingNS.BarcodeFormat.ITF,         // Boleto bancário usa este!
+      ZXingNS.BarcodeFormat.CODE_128,    // Boleto de arrecadação
+      ZXingNS.BarcodeFormat.CODE_39
+    ];
+    hints.set(ZXingNS.DecodeHintType.POSSIBLE_FORMATS, formats);
+    hints.set(ZXingNS.DecodeHintType.TRY_HARDER, true);
+    codeReader.hints = hints;
+
+    scannerZXing = codeReader;
+
+    // Pega a câmera traseira preferencialmente
+    const devices = await codeReader.listVideoInputDevices();
+    let deviceId = null;
+    if(devices && devices.length > 0){
+      // Procura câmera traseira pelo nome
+      const back = devices.find(d => /back|traseira|rear|environment/i.test(d.label));
+      deviceId = back ? back.deviceId : devices[devices.length-1].deviceId;
+    }
+
+    document.getElementById('scannerStatus').textContent = '🔍 Aponte para o código de barras do boleto...';
+
+    await codeReader.decodeFromVideoDevice(deviceId, 'scannerVideo', (result, err) => {
+      if(result){
+        const texto = result.getText();
+        aoLerCodigoBarras(texto);
       }
-    );
+      // erros silenciosos por frame, ignora (NotFoundException é normal)
+    });
 
-    document.getElementById('scannerStatus').textContent = '🔍 Aponte para o código de barras...';
   }catch(e){
     document.getElementById('scannerStatus').innerHTML =
       `<div style="color:#ff8a8a">Erro ao acessar câmera: ${e.message}<br>Permita o acesso ou digite manualmente.</div>`;
@@ -2663,9 +2730,9 @@ async function abrirScanner(){
 }
 
 async function fecharScanner(){
-  if(scannerHtml5){
-    try{ await scannerHtml5.stop(); scannerHtml5.clear(); }catch(e){}
-    scannerHtml5 = null;
+  if(scannerZXing){
+    try{ scannerZXing.reset(); }catch(e){}
+    scannerZXing = null;
   }
   document.getElementById('modalScanner').classList.remove('show');
 }
@@ -2677,15 +2744,15 @@ function aoLerCodigoBarras(codigo){
 
   let linhaDigitavel = null;
 
-  if(digitos.length === 47){
-    // Já é linha digitável (raro pelo scanner)
+  if(digitos.length === 47 || digitos.length === 48){
+    // Já é linha digitável (raro pelo scanner mas pode acontecer)
     linhaDigitavel = digitos;
   }else if(digitos.length === 44){
-    // Código de barras puro - converte pra linha digitável
+    // Código de barras de boleto bancário - converte pra linha digitável
     linhaDigitavel = codigoBarrasParaLinhaDigitavel(digitos);
   }else{
     document.getElementById('scannerStatus').innerHTML =
-      `<div style="color:#f5a623">⚠ Código lido tem ${digitos.length} dígitos. Boletos têm 44 ou 47. Tente novamente.</div>`;
+      `<div style="color:#f5a623">⚠ Código lido tem ${digitos.length} dígitos. Aproxime mais do código de barras.</div>`;
     return;
   }
 
@@ -2693,7 +2760,7 @@ function aoLerCodigoBarras(codigo){
     fecharScanner();
     document.getElementById('contaLinhaDigitavel').value = linhaDigitavel;
     aoMudarLinhaDigitavel();
-    toast('Código de barras lido com sucesso! ✓');
+    toast('✓ Código de barras lido!');
   }
 }
 
@@ -2879,20 +2946,23 @@ function gerarPDF(){
       qtdTexto = String(it.quantidade);
     }
 
+    // TÍTULO DO PRODUTO em negrito maior
     doc.setFont('helvetica','bold');
+    doc.setFontSize(11);
     doc.text(String(i+1), 16, y);
     doc.text(desc1, 28, y);
     doc.text(qtdTexto, 148, y);
     doc.text(fmt(it.preco_total), 178, y);
+    // DETALHES (ferros / estribos) - fonte um pouco maior, mais legível
     doc.setFont('helvetica','normal');
-    doc.setFontSize(8);
-    doc.setTextColor(120,120,120);
-    doc.text(desc2, 28, y+4);
-    doc.text(desc3, 28, y+8);
+    doc.setFontSize(9);
+    doc.setTextColor(80,80,80);
+    doc.text(desc2, 28, y+5);
+    if(desc3) doc.text(desc3, 28, y+10);
     doc.setTextColor(...cor2);
     doc.setFontSize(9);
 
-    y += 14;
+    y += desc3 ? 16 : 12;
     doc.setDrawColor(230,230,230);
     doc.line(14, y-2, 196, y-2);
   });
