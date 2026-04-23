@@ -298,7 +298,7 @@
       <div class="logo">F</div>
       <div>
         <h1>FERRAGEM PRO</h1>
-        <div class="sub">Sistema de orçamentos · v3.6.2</div>
+        <div class="sub">Sistema de orçamentos · v3.6.3</div>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -2723,19 +2723,20 @@ async function iniciarQuagga(facingMode){
           height: { ideal: 1080, min: 720 }
         },
         area: {
-          // Área da imagem a analisar (foca no centro horizontal)
-          top: '30%',
-          right: '5%',
-          left: '5%',
-          bottom: '30%'
+          // Área da imagem a analisar - PEGA QUASE TUDO horizontalmente
+          // pra capturar o código inteiro (pontas a pontas)
+          top: '20%',
+          right: '0%',
+          left: '0%',
+          bottom: '20%'
         }
       },
       locator: {
-        patchSize: 'medium',
-        halfSample: true
+        patchSize: 'large',     // patches maiores ajudam em códigos longos como boletos
+        halfSample: false        // melhor qualidade (mais lento mas mais preciso)
       },
       numOfWorkers: navigator.hardwareConcurrency || 2,
-      frequency: 10,  // tenta decodificar 10x por segundo
+      frequency: 10,
       decoder: {
         readers: [
           'i2of5_reader',     // ITF - Boleto bancário (PRINCIPAL)
@@ -2755,7 +2756,7 @@ async function iniciarQuagga(facingMode){
       Quagga.start();
       scannerAtivo = true;
       document.getElementById('scannerStatus').innerHTML =
-        '🔴 Centralize o código de barras na tela';
+        '🔴 Mantenha o código TODO dentro da mira (ponta a ponta)';
 
       // Adiciona mira visual por cima do video
       setTimeout(() => {
@@ -2765,13 +2766,13 @@ async function iniciarQuagga(facingMode){
           mira.id = 'scannerMira';
           mira.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;display:flex;align-items:center;justify-content:center;z-index:10';
           mira.innerHTML = `
-            <div style="width:90%;height:80px;border:3px solid #ff6b1a;border-radius:6px;position:relative">
+            <div style="width:98%;height:120px;border:3px solid #ff6b1a;border-radius:6px;position:relative">
               <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:#ff3b3b;box-shadow:0 0 8px #ff3b3b;transform:translateY(-50%)"></div>
+              <div style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:#ff6b1a;color:#000;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap">CÓDIGO INTEIRO AQUI</div>
             </div>
           `;
           area.appendChild(mira);
 
-          // Garante que video preenche a área toda
           const video = area.querySelector('video');
           const canvas = area.querySelector('canvas');
           if(video){
@@ -2790,14 +2791,20 @@ async function iniciarQuagga(facingMode){
       resolve();
     });
 
-    // Quando detectar um código
+    // Quando detectar um código - aceita só códigos COMPLETOS (44, 47 ou 48 dígitos)
     Quagga.onDetected((result) => {
       if(!scannerAtivo) return;
-      const code = result.codeResult.code;
-      if(code && code.length >= 20){  // boletos são longos
+      const code = (result.codeResult.code || '').replace(/\D/g,'');
+
+      // Boletos: 44 (cb bancário), 47 (linha bancário), 48 (arrecadação)
+      if(code.length === 44 || code.length === 47 || code.length === 48){
         scannerAtivo = false;  // evita ler múltiplas vezes
         if(navigator.vibrate) navigator.vibrate(200);
         aoLerCodigoBarras(code);
+      }else if(code.length >= 20){
+        // Leitura parcial - mostra dica mas CONTINUA tentando
+        document.getElementById('scannerStatus').innerHTML =
+          `<div style="color:#f5a623;font-size:12px">⚠ Leu parcial (${code.length} dígitos). Continue mirando — afaste/aproxime devagar até ler tudo.</div>`;
       }
     });
   });
