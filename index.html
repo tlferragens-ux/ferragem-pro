@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 <style>
   :root{
     --bg:#0f1115;
@@ -298,7 +298,7 @@
       <div class="logo">F</div>
       <div>
         <h1>FERRAGEM PRO</h1>
-        <div class="sub">Sistema de orçamentos · v3.6.1</div>
+        <div class="sub">Sistema de orçamentos · v3.6.2</div>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -2671,8 +2671,8 @@ async function excluirConta(id){
 // --- Scanner de código de barras usando ZXing ---
 // ZXing é especializado em códigos de barras lineares (ITF, Code 128, etc)
 // que é o que os boletos brasileiros usam (não QR Code).
-let scannerZXing = null;
 let scannerStream = null;
+let scannerAtivo = false;
 
 async function abrirScanner(){
   document.getElementById('modalScanner').classList.add('show');
@@ -2680,14 +2680,9 @@ async function abrirScanner(){
 
   // Estrutura HTML do scanner com mira visual horizontal
   document.getElementById('scannerArea').innerHTML = `
-    <div style="position:relative;background:#000;border-radius:8px;overflow:hidden">
-      <video id="scannerVideo" style="width:100%;height:auto;display:block;max-height:400px;object-fit:cover" autoplay muted playsinline></video>
-      <!-- Mira: linha vermelha horizontal no meio -->
-      <div style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;display:flex;align-items:center;justify-content:center">
-        <div style="width:90%;height:60px;border:2px solid #ff6b1a;border-radius:6px;box-shadow:0 0 0 9999px rgba(0,0,0,0.4);position:relative">
-          <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:#ff3b3b;box-shadow:0 0 8px #ff3b3b"></div>
-        </div>
-      </div>
+    <div id="quaggaArea" style="position:relative;background:#000;border-radius:8px;overflow:hidden;width:100%;height:400px"></div>
+    <div style="text-align:center;margin-top:8px">
+      <button class="btn secondary" onclick="trocarCamera()" style="font-size:12px;padding:6px 12px">🔄 Trocar câmera</button>
     </div>
   `;
 
@@ -2699,66 +2694,7 @@ async function abrirScanner(){
       return;
     }
 
-    // === ABRIR CÂMERA EM ALTA RESOLUÇÃO COM FOCO CONTÍNUO ===
-    // Isso é crítico pra ler boletos: o código tem barras finas que precisam de boa resolução
-    const constraints = {
-      audio: false,
-      video: {
-        facingMode: { ideal: 'environment' },  // câmera traseira
-        width: { ideal: 1920, min: 1280 },     // alta resolução
-        height: { ideal: 1080, min: 720 },
-        focusMode: { ideal: 'continuous' },    // foco automático contínuo
-        advanced: [
-          { focusMode: 'continuous' },
-          { exposureMode: 'continuous' },
-          { whiteBalanceMode: 'continuous' }
-        ]
-      }
-    };
-
-    scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
-    const video = document.getElementById('scannerVideo');
-    video.srcObject = scannerStream;
-    await video.play();
-
-    // Tenta aplicar zoom 1.5x se a câmera suportar (ajuda em códigos pequenos)
-    try{
-      const track = scannerStream.getVideoTracks()[0];
-      const cap = track.getCapabilities ? track.getCapabilities() : {};
-      if(cap.zoom){
-        const zoomDesejado = Math.min(cap.zoom.max, Math.max(cap.zoom.min, 2));
-        await track.applyConstraints({ advanced: [{ zoom: zoomDesejado }] });
-      }
-    }catch(e){ /* zoom não suportado, ignora */ }
-
-    // === CONFIGURA ZXING ===
-    const ZXingNS = window.ZXing || window.ZXingBrowser;
-    const hints = new Map();
-    const formats = [
-      ZXingNS.BarcodeFormat.ITF,         // Boleto bancário (ESSENCIAL)
-      ZXingNS.BarcodeFormat.CODE_128,    // Boleto de arrecadação
-      ZXingNS.BarcodeFormat.CODE_39,
-      ZXingNS.BarcodeFormat.EAN_13       // por garantia
-    ];
-    hints.set(ZXingNS.DecodeHintType.POSSIBLE_FORMATS, formats);
-    hints.set(ZXingNS.DecodeHintType.TRY_HARDER, true);
-
-    const codeReader = new ZXingNS.BrowserMultiFormatReader(hints);
-    scannerZXing = codeReader;
-
-    document.getElementById('scannerStatus').innerHTML =
-      '🔴 Centralize o código de barras na linha vermelha';
-
-    // Decodifica direto do elemento video (já com stream conectado)
-    codeReader.decodeFromVideoElement(video, (result, err) => {
-      if(result){
-        // Vibra o celular pra avisar (se suportar)
-        if(navigator.vibrate) navigator.vibrate(200);
-        const texto = result.getText();
-        aoLerCodigoBarras(texto);
-      }
-      // erros silenciosos por frame (NotFoundException é normal)
-    });
+    await iniciarQuagga('environment');
 
   }catch(e){
     document.getElementById('scannerStatus').innerHTML =
@@ -2766,15 +2702,119 @@ async function abrirScanner(){
   }
 }
 
+let cameraAtual = 'environment';
+async function trocarCamera(){
+  cameraAtual = cameraAtual === 'environment' ? 'user' : 'environment';
+  await pararQuagga();
+  await iniciarQuagga(cameraAtual);
+}
+
+async function iniciarQuagga(facingMode){
+  await pararQuagga();
+
+  return new Promise((resolve, reject) => {
+    Quagga.init({
+      inputStream: {
+        type: 'LiveStream',
+        target: document.getElementById('quaggaArea'),
+        constraints: {
+          facingMode: facingMode,
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 }
+        },
+        area: {
+          // Área da imagem a analisar (foca no centro horizontal)
+          top: '30%',
+          right: '5%',
+          left: '5%',
+          bottom: '30%'
+        }
+      },
+      locator: {
+        patchSize: 'medium',
+        halfSample: true
+      },
+      numOfWorkers: navigator.hardwareConcurrency || 2,
+      frequency: 10,  // tenta decodificar 10x por segundo
+      decoder: {
+        readers: [
+          'i2of5_reader',     // ITF - Boleto bancário (PRINCIPAL)
+          'code_128_reader',  // Boleto de arrecadação
+          'code_39_reader'
+        ],
+        multiple: false
+      },
+      locate: true
+    }, function(err){
+      if(err){
+        document.getElementById('scannerStatus').innerHTML =
+          `<div style="color:#ff8a8a">Erro: ${err.message || err}<br>Permita acesso à câmera.</div>`;
+        reject(err);
+        return;
+      }
+      Quagga.start();
+      scannerAtivo = true;
+      document.getElementById('scannerStatus').innerHTML =
+        '🔴 Centralize o código de barras na tela';
+
+      // Adiciona mira visual por cima do video
+      setTimeout(() => {
+        const area = document.getElementById('quaggaArea');
+        if(area && !document.getElementById('scannerMira')){
+          const mira = document.createElement('div');
+          mira.id = 'scannerMira';
+          mira.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;display:flex;align-items:center;justify-content:center;z-index:10';
+          mira.innerHTML = `
+            <div style="width:90%;height:80px;border:3px solid #ff6b1a;border-radius:6px;position:relative">
+              <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:#ff3b3b;box-shadow:0 0 8px #ff3b3b;transform:translateY(-50%)"></div>
+            </div>
+          `;
+          area.appendChild(mira);
+
+          // Garante que video preenche a área toda
+          const video = area.querySelector('video');
+          const canvas = area.querySelector('canvas');
+          if(video){
+            video.style.width = '100%';
+            video.style.height = '100%';
+            video.style.objectFit = 'cover';
+          }
+          if(canvas){
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.objectFit = 'cover';
+          }
+        }
+      }, 500);
+
+      resolve();
+    });
+
+    // Quando detectar um código
+    Quagga.onDetected((result) => {
+      if(!scannerAtivo) return;
+      const code = result.codeResult.code;
+      if(code && code.length >= 20){  // boletos são longos
+        scannerAtivo = false;  // evita ler múltiplas vezes
+        if(navigator.vibrate) navigator.vibrate(200);
+        aoLerCodigoBarras(code);
+      }
+    });
+  });
+}
+
+async function pararQuagga(){
+  try{
+    if(window.Quagga){
+      Quagga.offDetected();
+      Quagga.stop();
+    }
+  }catch(e){}
+  scannerAtivo = false;
+}
+
 async function fecharScanner(){
-  if(scannerZXing){
-    try{ scannerZXing.reset(); }catch(e){}
-    scannerZXing = null;
-  }
-  if(scannerStream){
-    try{ scannerStream.getTracks().forEach(t=>t.stop()); }catch(e){}
-    scannerStream = null;
-  }
+  await pararQuagga();
   document.getElementById('modalScanner').classList.remove('show');
 }
 
