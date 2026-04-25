@@ -144,6 +144,13 @@
   .price-row input{padding:8px 12px;font-size:14px}
 
   .hidden{display:none}
+
+  /* Mostra apenas em celular/tablet (esconde em telas grandes/desktop) */
+  .so-mobile{display:none}
+  /* Em telas pequenas (até 900px de largura) sempre mostra */
+  @media(max-width:900px){.so-mobile{display:inline-flex}}
+  /* Em qualquer dispositivo touch (incluindo tablets grandes) também mostra */
+  @media(hover:none) and (pointer:coarse){.so-mobile{display:inline-flex}}
   .pill{display:inline-block;background:var(--panel-2);border:1px solid var(--line);padding:4px 10px;border-radius:20px;font-size:11px;color:var(--muted);margin-left:8px}
   .pill.green{background:#1a2e1f;color:var(--green);border-color:#234d35}
   .pill.orange{background:#2e2419;color:var(--accent-2);border-color:#4d3a1c}
@@ -349,7 +356,7 @@
       <div class="logo">F</div>
       <div>
         <h1>FERRAGEM PRO</h1>
-        <div class="sub">Sistema de orçamentos · v4.1</div>
+        <div class="sub">Sistema de orçamentos · v4.1.1</div>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -2731,7 +2738,7 @@ function renderOrcamentoDetalhe(orc, itens){
 
     <div class="row-flex" style="margin-top:20px">
       <button class="btn green grow" onclick="gerarPDF('salvar')">📄 Salvar PDF</button>
-      <button class="btn" style="background:#25D366;color:#fff" onclick="gerarPDF('compartilhar')">📲 Compartilhar</button>
+      <button class="btn so-mobile" style="background:#25D366;color:#fff" onclick="gerarPDF('compartilhar')">📲 Compartilhar</button>
       ${orc.status !== 'vendido' ? `<button class="btn" style="background:var(--blue);color:#fff" onclick="editarOrcamento(${orc.id})">✏️ Editar</button>` : ''}
       <button class="btn ghost" onclick="duplicarOrcamento(${orc.id})">Duplicar</button>
       <button class="btn danger" onclick="excluirOrcamento(${orc.id})">Excluir</button>
