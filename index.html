@@ -349,7 +349,7 @@
       <div class="logo">F</div>
       <div>
         <h1>FERRAGEM PRO</h1>
-        <div class="sub">Sistema de orçamentos · v4.0</div>
+        <div class="sub">Sistema de orçamentos · v4.0.1</div>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -541,17 +541,17 @@
         </div>
         <div class="grid-2" style="margin-top:12px">
           <div>
-            <label>Altura (cm)</label>
-            <input type="number" id="blocoXAltura" step="1" min="1" placeholder="Ex: 50">
+            <label>Altura (m)</label>
+            <input type="number" id="blocoXAltura" step="0.01" min="0.01" placeholder="Ex: 0.90">
           </div>
           <div>
-            <label>Comprimento (cm)</label>
-            <input type="number" id="blocoXComp" step="1" min="1" placeholder="Ex: 50">
+            <label>Comprimento (m)</label>
+            <input type="number" id="blocoXComp" step="0.01" min="0.01" placeholder="Ex: 1.10">
           </div>
         </div>
         <div style="margin-top:12px">
-          <label>Dobra total (cm) <span class="opcional">(soma das pontas)</span></label>
-          <input type="number" id="blocoXDobra" step="1" min="0" placeholder="Ex: 20" value="20">
+          <label>Dobra total (m) <span class="opcional">(soma das pontas)</span></label>
+          <input type="number" id="blocoXDobra" step="0.01" min="0" placeholder="Ex: 0.20" value="0.20">
         </div>
       </div>
 
@@ -581,17 +581,17 @@
         </div>
         <div class="grid-2" style="margin-top:12px">
           <div>
-            <label>Altura (cm)</label>
-            <input type="number" id="blocoYAltura" step="1" min="1" placeholder="Ex: 50">
+            <label>Altura (m)</label>
+            <input type="number" id="blocoYAltura" step="0.01" min="0.01" placeholder="Ex: 0.90">
           </div>
           <div>
-            <label>Comprimento (cm)</label>
-            <input type="number" id="blocoYComp" step="1" min="1" placeholder="Ex: 50">
+            <label>Comprimento (m)</label>
+            <input type="number" id="blocoYComp" step="0.01" min="0.01" placeholder="Ex: 1.10">
           </div>
         </div>
         <div style="margin-top:12px">
-          <label>Dobra total (cm)</label>
-          <input type="number" id="blocoYDobra" step="1" min="0" placeholder="Ex: 20" value="20">
+          <label>Dobra total (m)</label>
+          <input type="number" id="blocoYDobra" step="0.01" min="0" placeholder="Ex: 0.20" value="0.20">
         </div>
       </div>
 
@@ -621,17 +621,17 @@
         </div>
         <div class="grid-2" style="margin-top:12px">
           <div>
-            <label>Altura (cm)</label>
-            <input type="number" id="blocoZAltura" step="1" min="0" placeholder="Ex: 50">
+            <label>Altura (m)</label>
+            <input type="number" id="blocoZAltura" step="0.01" min="0" placeholder="Ex: 0.90">
           </div>
           <div>
-            <label>Comprimento (cm)</label>
-            <input type="number" id="blocoZComp" step="1" min="0" placeholder="Ex: 50">
+            <label>Comprimento (m)</label>
+            <input type="number" id="blocoZComp" step="0.01" min="0" placeholder="Ex: 1.10">
           </div>
         </div>
         <div style="margin-top:12px">
-          <label>Dobra total (cm)</label>
-          <input type="number" id="blocoZDobra" step="1" min="0" placeholder="Ex: 20" value="20">
+          <label>Dobra total (m)</label>
+          <input type="number" id="blocoZDobra" step="0.01" min="0" placeholder="Ex: 0.20" value="0.20">
         </div>
       </div>
 
@@ -1406,7 +1406,7 @@ function selecionarProduto(tipo){
 
 // Sub-aba do bloco: simples ou composto
 let subBlocoAtual = 'simples';
-let ferrosExtrasBloco = [];  // array com {bitola, comprimento_cm, qtd}
+let ferrosExtrasBloco = [];  // array com {bitola, comprimento_m, qtd}
 
 function selecionarSubBloco(tipo){
   subBlocoAtual = tipo;
@@ -1464,15 +1464,15 @@ function renderFerrosExtrasBloco(){
         </div>
       </div>
       <div style="margin-top:8px">
-        <label style="font-size:12px">Comprimento total de cada ferro (cm) <span class="opcional">(já com dobras)</span></label>
-        <input type="number" min="1" step="1" value="${f.comprimento_cm||''}" oninput="ferrosExtrasBloco[${i}].comprimento_cm=parseFloat(this.value)||0" placeholder="Ex: 220">
+        <label style="font-size:12px">Comprimento total de cada ferro (m) <span class="opcional">(já com dobras)</span></label>
+        <input type="number" min="0.01" step="0.01" value="${f.comprimento_m||''}" oninput="ferrosExtrasBloco[${i}].comprimento_m=parseFloat(this.value)||0" placeholder="Ex: 2.20">
       </div>
     </div>
   `).join('');
 }
 
 function adicionarFerroExtra(){
-  ferrosExtrasBloco.push({bitola:'', comprimento_cm:0, qtd:1});
+  ferrosExtrasBloco.push({bitola:'', comprimento_m:0, qtd:1});
   renderFerrosExtrasBloco();
 }
 
@@ -1704,14 +1704,21 @@ function calcularSapata(){
 // ====================================================
 // BLOCO - Calcula comprimento total de ferro considerando
 // direções X, Y, opcionalmente Z e ferros adicionais.
-// Fórmula: cada ferro da direção tem (altura + comprimento)*2 + dobra
-// Depois multiplica por quantidade de ferros × quantidade de blocos
+// ====================================================
+// BLOCO - Calcula comprimento total de ferro considerando
+// direções X, Y, opcionalmente Z e ferros adicionais.
+// FÓRMULA (valores em METROS):
+//   Cada ferro = altura + comprimento + altura + comprimento + dobra
+//              = (altura × 2) + (comprimento × 2) + dobra
+//   Total da direção = ferro × qtd_ferros × qtd_blocos
+// Adicionais: comprimento_m direto × qtd × qtd_blocos
 // ====================================================
 function calcularBloco(){
   const qtdBlocos = parseInt(document.getElementById('blocoQtdBlocos').value) || 1;
   if(qtdBlocos <= 0){ toast('Informe a quantidade de blocos', 'error'); return; }
 
   // Coleta dados das 3 direções (Z só é usada no composto)
+  // Todos os valores em METROS
   const direcoes = [];
 
   const dirX = {
@@ -1761,14 +1768,14 @@ function calcularBloco(){
     }
   }
 
-  // Ferros adicionais (só no composto)
+  // Ferros adicionais (só no composto) - comprimento já em METROS
   const adicionais = [];
   if(subBlocoAtual === 'composto'){
     ferrosExtrasBloco.forEach((f,i)=>{
-      if(f.qtd > 0 && f.comprimento_cm > 0 && f.bitola){
+      if(f.qtd > 0 && f.comprimento_m > 0 && f.bitola){
         adicionais.push({
           bitola: f.bitola,
-          comprimento_cm: f.comprimento_cm,
+          comprimento_m: f.comprimento_m,
           qtd: f.qtd,
           nome: `Adicional ${i+1}`
         });
@@ -1784,28 +1791,29 @@ function calcularBloco(){
   const detalhes = [];           // pra mostrar no breakdown
 
   direcoes.forEach(d=>{
-    // comprimento de cada ferro = (altura + comp) * 2 + dobra
-    const compFerroCm = (d.altura + d.comp) * 2 + d.dobra;
-    const metrosPorPeca = (compFerroCm * d.qtd) / 100;  // × qtd ferros dessa direção
-    const metrosTotais = metrosPorPeca * qtdBlocos;     // × qtd de blocos iguais
+    // FÓRMULA CORRETA: 4 lados (2 alturas + 2 comprimentos) + dobra (em metros)
+    // Ex: altura 0.90, comprimento 1.10, dobra 0.20 → 0.90+1.10+0.90+1.10+0.20 = 4.20m
+    const compFerroM = (d.altura * 2) + (d.comp * 2) + d.dobra;
+    const metrosPorBloco = compFerroM * d.qtd;          // × qtd ferros dessa direção
+    const metrosTotais = metrosPorBloco * qtdBlocos;    // × qtd de blocos iguais
     metrosPorBitola[d.bitola] = (metrosPorBitola[d.bitola] || 0) + metrosTotais;
     detalhes.push({
       ...d,
-      compFerroCm,
-      metrosPorPeca,
+      compFerroM,
+      metrosPorBloco,
       metrosTotais
     });
   });
 
   adicionais.forEach(a=>{
-    const metrosPorPeca = (a.comprimento_cm * a.qtd) / 100;
-    const metrosTotais = metrosPorPeca * qtdBlocos;
+    const metrosPorBloco = a.comprimento_m * a.qtd;
+    const metrosTotais = metrosPorBloco * qtdBlocos;
     metrosPorBitola[a.bitola] = (metrosPorBitola[a.bitola] || 0) + metrosTotais;
     detalhes.push({
       bitola: a.bitola,
       qtd: a.qtd,
-      compFerroCm: a.comprimento_cm,
-      metrosPorPeca,
+      compFerroM: a.comprimento_m,
+      metrosPorBloco,
       metrosTotais,
       nome: a.nome,
       ehAdicional: true
@@ -1848,9 +1856,9 @@ function calcularBloco(){
   // Monta breakdown bonito
   const linhasDet = detalhes.map(d=>{
     if(d.ehAdicional){
-      return `<div class="breakdown-row"><span>${d.nome}: ${d.qtd}× ferro ${d.bitola}mm de ${d.compFerroCm}cm</span><span>${d.metrosTotais.toFixed(2)} m</span></div>`;
+      return `<div class="breakdown-row"><span>${d.nome}: ${d.qtd}× ferro ${d.bitola}mm de ${d.compFerroM.toFixed(2)}m</span><span>${d.metrosTotais.toFixed(2)} m</span></div>`;
     }
-    return `<div class="breakdown-row"><span>${d.nome}: ${d.qtd}× ferro ${d.bitola}mm · ${d.altura}×${d.comp}cm + ${d.dobra}cm dobra</span><span>${d.metrosTotais.toFixed(2)} m</span></div>`;
+    return `<div class="breakdown-row"><span>${d.nome}: ${d.qtd}× ferro ${d.bitola}mm · ${d.altura}×${d.comp}m + ${d.dobra}m dobra</span><span>${d.metrosTotais.toFixed(2)} m</span></div>`;
   }).join('');
 
   const linhasCustoBitola = custoPorBitola.map(c =>
@@ -2106,7 +2114,7 @@ function adicionarAoOrcamento(){
     ['blocoXBitola','blocoYBitola','blocoZBitola'].forEach(id=>document.getElementById(id).value='');
     ['blocoXQtd','blocoYQtd','blocoXAltura','blocoXComp','blocoYAltura','blocoYComp','blocoZAltura','blocoZComp'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('blocoZQtd').value='0';
-    ['blocoXDobra','blocoYDobra','blocoZDobra'].forEach(id=>document.getElementById(id).value='20');
+    ['blocoXDobra','blocoYDobra','blocoZDobra'].forEach(id=>document.getElementById(id).value='0.20');
     document.getElementById('blocoQtdBlocos').value=1;
     ferrosExtrasBloco = [];
     renderFerrosExtrasBloco();
@@ -2197,7 +2205,7 @@ function renderItensOrcamento(){
       const subtipo = it.subtipo_bloco === 'composto' ? 'Composto' : 'Simples';
       // Resumo das direções
       const resumos = (it.direcoes||[]).map(d =>
-        `${d.nome}: ${d.qtd}× ${d.bitola}mm (${d.altura}×${d.comp}cm)`
+        `${d.nome}: ${d.qtd}× ${d.bitola}mm (${d.altura}×${d.comp}m + ${d.dobra}m dobra)`
       );
       if(it.adicionais && it.adicionais.length > 0){
         resumos.push(`+ ${it.adicionais.length} ferro${it.adicionais.length>1?'s':''} adicional${it.adicionais.length>1?'is':''}`);
@@ -2629,11 +2637,11 @@ function renderOrcamentoDetalhe(orc, itens){
       const qtdBlocos = it.quantidade || 1;
       const subtipo = bd.subtipo === 'composto' ? 'Composto' : 'Simples';
       const resumos = (bd.direcoes || []).map(d =>
-        `${d.nome}: ${d.qtd}× ${d.bitola}mm (${d.altura}×${d.comp}cm + ${d.dobra}cm dobra)`
+        `${d.nome}: ${d.qtd}× ${d.bitola}mm (${d.altura}×${d.comp}m + ${d.dobra}m dobra)`
       );
       if(bd.adicionais && bd.adicionais.length > 0){
         bd.adicionais.forEach((a,idx)=>{
-          resumos.push(`Adicional ${idx+1}: ${a.qtd}× ${a.bitola}mm de ${a.comprimento_cm}cm`);
+          resumos.push(`Adicional ${idx+1}: ${a.qtd}× ${a.bitola}mm de ${a.comprimento_m}m`);
         });
       }
       return `
