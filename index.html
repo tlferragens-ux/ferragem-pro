@@ -349,7 +349,7 @@
       <div class="logo">F</div>
       <div>
         <h1>FERRAGEM PRO</h1>
-        <div class="sub">Sistema de orçamentos · v4.0.1</div>
+        <div class="sub">Sistema de orçamentos · v4.1</div>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -2730,7 +2730,8 @@ function renderOrcamentoDetalhe(orc, itens){
     </div>
 
     <div class="row-flex" style="margin-top:20px">
-      <button class="btn green grow" onclick="gerarPDF()">📄 Gerar PDF (WhatsApp)</button>
+      <button class="btn green grow" onclick="gerarPDF('salvar')">📄 Salvar PDF</button>
+      <button class="btn" style="background:#25D366;color:#fff" onclick="gerarPDF('compartilhar')">📲 Compartilhar</button>
       ${orc.status !== 'vendido' ? `<button class="btn" style="background:var(--blue);color:#fff" onclick="editarOrcamento(${orc.id})">✏️ Editar</button>` : ''}
       <button class="btn ghost" onclick="duplicarOrcamento(${orc.id})">Duplicar</button>
       <button class="btn danger" onclick="excluirOrcamento(${orc.id})">Excluir</button>
@@ -3691,8 +3692,10 @@ function modulo10(num){
 
 // ====================================================
 // GERAR PDF
+// modo: 'salvar' (download direto) ou 'compartilhar' (Web Share API)
 // ====================================================
-function gerarPDF(){
+async function gerarPDF(modo){
+  modo = modo || 'salvar';
   const {orc, itens} = window._orcAtual;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -3976,8 +3979,43 @@ function gerarPDF(){
   doc.text('Orçamento gerado em ' + new Date().toLocaleString('pt-BR'), 14, 290);
   doc.text(empresa.nome || 'Ferragem Pro', 196, 290, {align:'right'});
 
-  doc.save(`Orcamento-${String(orc.numero).padStart(4,'0')}-${(orc.cliente_nome||'avulso').replace(/[^a-z0-9]/gi,'-')}.pdf`);
-  toast('PDF gerado! 📄');
+  // === Decide entre salvar ou compartilhar ===
+  const nomeArquivo = `Orcamento-${String(orc.numero).padStart(4,'0')}-${(orc.cliente_nome||'avulso').replace(/[^a-z0-9]/gi,'-')}.pdf`;
+
+  if(modo === 'compartilhar'){
+    // Tenta usar Web Share API (nativa do celular e navegadores modernos)
+    try{
+      const blob = doc.output('blob');
+      const file = new File([blob], nomeArquivo, { type: 'application/pdf' });
+
+      // Verifica se o navegador suporta compartilhamento de arquivo
+      if(navigator.canShare && navigator.canShare({ files: [file] })){
+        await navigator.share({
+          files: [file],
+          title: `Orçamento ${orc.numero}`,
+          text: `Orçamento ${orc.numero} - ${orc.cliente_nome || 'Cliente'}`
+        });
+        toast('Compartilhado! 📲');
+      }else{
+        // Navegador não suporta compartilhar arquivo (ex: Chrome desktop antigo)
+        // Salva e avisa o usuário
+        doc.save(nomeArquivo);
+        toast('💡 PDF salvo! Use o WhatsApp Web pra mandar.');
+      }
+    }catch(e){
+      // Se o usuário cancelar o compartilhamento, não faz nada
+      if(e.name === 'AbortError'){
+        return;
+      }
+      // Erro real - faz fallback pra salvar
+      doc.save(nomeArquivo);
+      toast('PDF salvo nos Downloads');
+    }
+  }else{
+    // Modo "salvar" - download direto pra Downloads
+    doc.save(nomeArquivo);
+    toast('PDF salvo! 📄');
+  }
 }
 
 // ====================================================
