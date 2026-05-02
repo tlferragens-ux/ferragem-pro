@@ -221,6 +221,13 @@
     border-color: #f5a623;
     border-left-color: #f5a623;
   }
+  /* Banner de pós-venda em tom esverdeado/petróleo */
+  .alerta-boletos.alerta-pos-venda{
+    background: linear-gradient(90deg, #0f2a1f, #143a2c);
+    border-color: #25D366;
+    border-left-color: #25D366;
+  }
+  .alerta-boletos.alerta-pos-venda .alerta-titulo{ color: #6ee7a0; }
   @keyframes slideDown {
     from { opacity: 0; transform: translateY(-10px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -356,7 +363,7 @@
       <div class="logo">F</div>
       <div>
         <h1>FERRAGEM PRO</h1>
-        <div class="sub">Sistema de orçamentos · v4.1.1</div>
+        <div class="sub">Sistema de orçamentos · v4.4</div>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -370,11 +377,15 @@
     <button data-tab="clientes">👥 Clientes</button>
     <button data-tab="produtos">📦 Produtos</button>
     <button data-tab="contas">💰 Contas a Pagar</button>
+    <button data-tab="relatorios">📊 Relatórios</button>
     <button data-tab="config">⚙️ Preços e %</button>
   </nav>
 
   <!-- Banner de alertas de boletos -->
   <div id="alertaBoletos" class="alerta-boletos hidden"></div>
+
+  <!-- Banner de lembretes de pós-venda -->
+  <div id="alertaPosVenda" class="alerta-boletos alerta-pos-venda hidden"></div>
 
   <!-- ============== TAB NOVO ORÇAMENTO ============== -->
   <section id="tab-orcamento">
@@ -855,6 +866,98 @@
     </div>
   </section>
 
+  <!-- ============== TAB RELATÓRIOS ============== -->
+  <section id="tab-relatorios" class="hidden">
+    <div class="card">
+      <h2 style="margin:0">📊 Relatórios</h2>
+      <div class="desc" style="margin-bottom:18px">Veja como anda o seu negócio. Faturamento, orçamentos, top produtos e taxa de conversão.</div>
+
+      <!-- Filtros de período -->
+      <div style="margin-bottom:16px">
+        <label style="margin-bottom:8px">Período</label>
+        <div class="contas-filtros" style="margin-bottom:10px">
+          <button class="filtro-btn" data-periodo="hoje" onclick="filtrarPeriodoRelatorio('hoje')">Hoje</button>
+          <button class="filtro-btn" data-periodo="semana" onclick="filtrarPeriodoRelatorio('semana')">Semana</button>
+          <button class="filtro-btn active" data-periodo="mes" onclick="filtrarPeriodoRelatorio('mes')">Este mês</button>
+          <button class="filtro-btn" data-periodo="ano" onclick="filtrarPeriodoRelatorio('ano')">Este ano</button>
+          <button class="filtro-btn" data-periodo="tudo" onclick="filtrarPeriodoRelatorio('tudo')">Tudo</button>
+          <button class="filtro-btn" data-periodo="custom" onclick="filtrarPeriodoRelatorio('custom')">Personalizado</button>
+        </div>
+
+        <div id="periodoCustom" class="hidden grid-2" style="margin-top:10px">
+          <div>
+            <label style="font-size:12px">De</label>
+            <input type="date" id="relatorioDe" onchange="aplicarPeriodoCustom()">
+          </div>
+          <div>
+            <label style="font-size:12px">Até</label>
+            <input type="date" id="relatorioAte" onchange="aplicarPeriodoCustom()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cards de resumo financeiro -->
+    <div class="contas-resumo" style="margin-bottom:14px">
+      <div class="resumo-card resumo-pagas">
+        <div class="resumo-label">Faturamento (vendido)</div>
+        <div class="resumo-valor" id="relFaturamento">R$ 0</div>
+        <div class="resumo-sub" id="relFaturamentoQtd">0 vendas</div>
+      </div>
+      <div class="resumo-card resumo-mes">
+        <div class="resumo-label">Em aberto</div>
+        <div class="resumo-valor" id="relAberto">R$ 0</div>
+        <div class="resumo-sub" id="relAbertoQtd">0 orçamentos</div>
+      </div>
+      <div class="resumo-card resumo-vencidas">
+        <div class="resumo-label">Recusados</div>
+        <div class="resumo-valor" id="relRecusado">R$ 0</div>
+        <div class="resumo-sub" id="relRecusadoQtd">0 orçamentos</div>
+      </div>
+      <div class="resumo-card resumo-vencendo">
+        <div class="resumo-label">Total orçado (geral)</div>
+        <div class="resumo-valor" id="relTotal">R$ 0</div>
+        <div class="resumo-sub" id="relTotalQtd">0 orçamentos</div>
+      </div>
+    </div>
+
+    <!-- Taxa de conversão -->
+    <div class="card">
+      <h2>📈 Taxa de conversão</h2>
+      <div class="desc">Percentual dos orçamentos que se transformaram em vendas.</div>
+
+      <div style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:14px;color:var(--text)">Orçamentos finalizados (Vendidos + Recusados)</span>
+          <b id="relConvNum" style="font-family:'JetBrains Mono';font-size:18px;color:var(--green)">0%</b>
+        </div>
+        <div style="background:var(--panel-2);border-radius:8px;height:24px;overflow:hidden;position:relative;border:1px solid var(--line)">
+          <div id="relConvBar" style="background:linear-gradient(90deg,var(--green),#6ee7a0);height:100%;width:0%;transition:width .5s ease"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px">
+          <span><b id="relConvVendidos" style="color:var(--green)">0</b> vendidos</span>
+          <span><b id="relConvRecusados" style="color:#e85a5a">0</b> recusados</span>
+        </div>
+      </div>
+
+      <div id="relConvDica" style="margin-top:14px;padding:10px 14px;background:rgba(74,158,255,0.08);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--muted)"></div>
+    </div>
+
+    <!-- Top 5 produtos -->
+    <div class="card">
+      <h2>🏆 Top produtos vendidos</h2>
+      <div class="desc">Ranking por <b>quantidade total</b> nos orçamentos vendidos no período.</div>
+      <div id="relTopProdutos" style="margin-top:12px"></div>
+    </div>
+
+    <!-- Top 5 clientes -->
+    <div class="card">
+      <h2>👑 Top clientes</h2>
+      <div class="desc">Ranking dos clientes que mais compraram (status Vendido).</div>
+      <div id="relTopClientes" style="margin-top:12px"></div>
+    </div>
+  </section>
+
   <!-- ============== TAB CONFIG ============== -->
   <section id="tab-config" class="hidden">
     <div class="card">
@@ -1051,6 +1154,55 @@
   </div>
 </div>
 
+<!-- Modal de Geração de Contrato -->
+<div class="modal-overlay" id="modalContrato">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h3>📝 Gerar contrato de compra e venda</h3>
+      <button class="modal-close" onclick="fecharModalContrato()">×</button>
+    </div>
+
+    <div style="background:rgba(107,70,193,0.12);border-left:3px solid #6b46c1;padding:10px 14px;border-radius:6px;font-size:12px;margin-bottom:16px">
+      💡 Preencha os dados abaixo. O contrato será gerado em PDF separado, com os dados do cliente, produtos e cláusulas padrão.
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label>Forma de pagamento *</label>
+      <textarea id="contratoPagamento" placeholder="Ex: 50% de entrada via PIX e 50% na entrega; ou 3 parcelas de R$ X,XX nos dias 15/MM, 30/MM e 15/MM+1; ou à vista" style="min-height:60px"></textarea>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label>Prazo de entrega *</label>
+      <input type="text" id="contratoPrazo" placeholder="Ex: 7 dias úteis após confirmação do pagamento; ou 15/05/2026">
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label>Frete</label>
+      <select id="contratoFrete">
+        <option value="incluso">Incluso no valor</option>
+        <option value="separado">Separado (cliente paga)</option>
+        <option value="retira">Cliente retira na loja (sem frete)</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label>Local de entrega <span class="opcional">(opcional, se não usar do orçamento)</span></label>
+      <input type="text" id="contratoLocal" placeholder="Deixe vazio para usar o endereço de entrega do orçamento">
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label>Observações adicionais ao contrato <span class="opcional">(opcional)</span></label>
+      <textarea id="contratoObs" placeholder="Cláusulas extras ou observações específicas deste contrato..."></textarea>
+    </div>
+
+    <div class="row-flex" style="margin-top:20px;justify-content:flex-end">
+      <button class="btn secondary" onclick="fecharModalContrato()">Cancelar</button>
+      <button class="btn green" onclick="gerarContrato('salvar')">📄 Salvar contrato</button>
+      <button class="btn so-mobile" style="background:#25D366;color:#fff" onclick="gerarContrato('compartilhar')">📲 Compartilhar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal de detalhes do orçamento -->
 <div class="modal-overlay" id="modalOrcamento">
   <div class="modal" style="max-width:700px">
@@ -1122,13 +1274,14 @@ document.querySelectorAll('nav button').forEach(b=>{
   b.onclick = ()=>{
     document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
-    ['orcamento','historico','clientes','produtos','contas','config'].forEach(t=>{
+    ['orcamento','historico','clientes','produtos','contas','relatorios','config'].forEach(t=>{
       document.getElementById('tab-'+t).classList.toggle('hidden', b.dataset.tab!==t);
     });
     if(b.dataset.tab==='historico') carregarHistorico();
     if(b.dataset.tab==='clientes')  carregarClientes(true);
     if(b.dataset.tab==='produtos')  carregarProdutos(true);
     if(b.dataset.tab==='contas')    carregarContas();
+    if(b.dataset.tab==='relatorios') carregarRelatorios();
   };
 });
 
@@ -2563,7 +2716,6 @@ async function carregarHistorico(){
 
     const statusPills = {
       'aberto': '<span class="pill orange">Aberto</span>',
-      'aprovado': '<span class="pill green">Aprovado</span>',
       'recusado': '<span class="pill red">Recusado</span>',
       'vendido': '<span class="pill green">Vendido</span>'
     };
@@ -2723,14 +2875,12 @@ function renderOrcamentoDetalhe(orc, itens){
       <label>Status do orçamento</label>
       <select id="orcStatusUpdate" onchange="atualizarStatus(${orc.id}, this.value)">
         <option value="aberto" ${orc.status==='aberto'?'selected':''}>Aberto</option>
-        <option value="aprovado" ${orc.status==='aprovado'?'selected':''}>Aprovado</option>
         <option value="vendido" ${orc.status==='vendido'?'selected':''}>Vendido</option>
         <option value="recusado" ${orc.status==='recusado'?'selected':''}>Recusado</option>
       </select>
       <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">
         💡 <b>Dica:</b> o PDF muda conforme o status<br>
         • <b>Aberto</b> → "ORÇAMENTO" + aviso de validade de 1 semana<br>
-        • <b>Aprovado</b> → "ORÇAMENTO APROVADO" (aguardando fechamento)<br>
         • <b>Vendido</b> → "VENDA" + campo de assinatura do cliente<br>
         <span style="color:var(--accent-2)">Mude o status <b>antes</b> de gerar o PDF.</span>
       </div>
@@ -2739,6 +2889,7 @@ function renderOrcamentoDetalhe(orc, itens){
     <div class="row-flex" style="margin-top:20px">
       <button class="btn green grow" onclick="gerarPDF('salvar')">📄 Salvar PDF</button>
       <button class="btn so-mobile" style="background:#25D366;color:#fff" onclick="gerarPDF('compartilhar')">📲 Compartilhar</button>
+      <button class="btn" style="background:#6b46c1;color:#fff" onclick="abrirModalContrato()">📝 Gerar contrato</button>
       ${orc.status !== 'vendido' ? `<button class="btn" style="background:var(--blue);color:#fff" onclick="editarOrcamento(${orc.id})">✏️ Editar</button>` : ''}
       <button class="btn ghost" onclick="duplicarOrcamento(${orc.id})">Duplicar</button>
       <button class="btn danger" onclick="excluirOrcamento(${orc.id})">Excluir</button>
@@ -2758,18 +2909,30 @@ function fecharModalOrcamento(){
 
 async function atualizarStatus(id, status){
   try{
+    // Pega status antigo antes de atualizar (pra detectar transição pra "vendido")
+    const orcAntigo = window._orcAtual && window._orcAtual.orc && window._orcAtual.orc.id === id
+      ? window._orcAtual.orc
+      : null;
+    const eraVendido = orcAntigo && orcAntigo.status === 'vendido';
+
     await sb.from('orcamentos').update({status}).eq('id', id);
+
     // Atualiza a cópia em memória pra que o PDF gerado em seguida reflita o novo status
     if(window._orcAtual && window._orcAtual.orc && window._orcAtual.orc.id === id){
       window._orcAtual.orc.status = status;
     }
     const nomeStatus = {
       'aberto':'Aberto',
-      'aprovado':'Aprovado ✓',
       'vendido':'Vendido ✓',
       'recusado':'Recusado'
     }[status] || status;
     toast('Status atualizado para: ' + nomeStatus);
+
+    // Se a venda foi concluída AGORA (não era vendido antes), cria lembretes de pós-venda
+    if(status === 'vendido' && !eraVendido && orcAntigo){
+      await criarLembretesPosVenda(orcAntigo);
+    }
+
     carregarHistorico();
   }catch(e){ toast('Erro: '+e.message, 'error'); }
 }
@@ -3329,6 +3492,177 @@ function abrirAbaContas(){
   document.querySelector('nav button[data-tab="contas"]').click();
 }
 
+// ====================================================
+// PÓS-VENDA — Lembretes pra ligar no cliente após a venda
+// ====================================================
+
+let lembretesPosVenda = [];  // cache local
+
+// Cria os 3 lembretes (5, 10 e 15 dias após a venda)
+async function criarLembretesPosVenda(orcamento){
+  if(!orcamento || !orcamento.cliente_id) return;  // sem cliente não cria
+  const cliente = clientes.find(c => c.id == orcamento.cliente_id);
+  if(!cliente) return;
+
+  const hoje = new Date();
+  const intervalos = [5, 10, 15];
+  const lembretes = intervalos.map((dias, idx) => {
+    const data = new Date(hoje);
+    data.setDate(data.getDate() + dias);
+    return {
+      orcamento_id: orcamento.id,
+      cliente_nome: cliente.nome,
+      cliente_telefone: cliente.telefone || null,
+      numero_orcamento: orcamento.numero,
+      valor_venda: orcamento.valor_total,
+      data_lembrete: data.toISOString().slice(0,10),
+      numero_contato: idx + 1,
+      status: 'pendente'
+    };
+  });
+
+  try{
+    // Antes de criar, remove lembretes pendentes deste orçamento (caso já existam)
+    await sb.from('pos_venda_lembretes').delete()
+      .eq('orcamento_id', orcamento.id)
+      .eq('status', 'pendente');
+
+    const {error} = await sb.from('pos_venda_lembretes').insert(lembretes);
+    if(error) throw error;
+    toast('✓ 3 lembretes de pós-venda criados (5, 10 e 15 dias)');
+  }catch(e){
+    // Se a tabela ainda não existe (SQL não foi rodado), não dá erro pro usuário
+    console.error('Erro criando lembretes:', e);
+  }
+}
+
+// Carrega lembretes pendentes do banco
+async function carregarLembretesPosVenda(){
+  try{
+    const hojeStr = new Date().toISOString().slice(0,10);
+    const {data, error} = await sb.from('pos_venda_lembretes')
+      .select('*, orcamentos(observacoes)')
+      .eq('status', 'pendente')
+      .lte('data_lembrete', hojeStr)
+      .order('data_lembrete');
+    if(error){
+      // tabela pode não existir ainda
+      lembretesPosVenda = [];
+      return;
+    }
+    lembretesPosVenda = data || [];
+    mostrarAlertasPosVenda();
+  }catch(e){
+    lembretesPosVenda = [];
+  }
+}
+
+// Mostra o banner com lembretes ativos
+function mostrarAlertasPosVenda(){
+  const banner = document.getElementById('alertaPosVenda');
+  if(!banner) return;
+
+  // Verifica se o usuário fechou o banner hoje
+  const hojeStr = new Date().toISOString().slice(0,10);
+  const fechadoEm = localStorage.getItem('alertaPosVendaFechado');
+  if(fechadoEm === hojeStr){
+    banner.classList.add('hidden');
+    return;
+  }
+
+  if(lembretesPosVenda.length === 0){
+    banner.classList.add('hidden');
+    return;
+  }
+
+  // Pega só os primeiros para itens detalhados — mostra todos resumidamente
+  let html = `<button class="alerta-fechar" onclick="fecharAlertaPosVenda()" title="Fechar por hoje">×</button>`;
+  html += `<div class="alerta-titulo">📞 ${lembretesPosVenda.length} ${lembretesPosVenda.length > 1 ? 'lembretes de pós-venda' : 'lembrete de pós-venda'} hoje</div>`;
+  html += `<div class="alerta-lista">`;
+
+  lembretesPosVenda.forEach(l => {
+    const numContato = l.numero_contato === 1 ? '1º contato' : (l.numero_contato === 2 ? '2º contato' : '3º contato (último)');
+    const tel = l.cliente_telefone || '';
+    const telLimpo = tel.replace(/\D/g,'');
+    const valor = parseFloat(l.valor_venda);
+
+    // Mensagem padrão pro WhatsApp
+    const msg = encodeURIComponent(
+      `Olá ${l.cliente_nome}, tudo bem? Aqui é a Leide da TL Ferragens. ` +
+      `Passei só pra saber como ficou a obra com o material que entregamos (orçamento nº ${String(l.numero_orcamento).padStart(4,'0')}). ` +
+      `Tudo certo aí?`
+    );
+    const linkWhats = telLimpo ? `https://wa.me/55${telLimpo}?text=${msg}` : null;
+
+    html += `
+      <div class="alerta-item" style="flex-direction:column;align-items:stretch;cursor:default">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;margin-bottom:6px">
+          <div class="alerta-item-info">
+            <div class="alerta-item-forn">${l.cliente_nome} <span style="font-weight:400;color:var(--muted);font-size:11px">· ${numContato}</span></div>
+            <div class="alerta-item-data">Orçamento nº ${String(l.numero_orcamento).padStart(4,'0')} · Venda: ${fmt(valor)}</div>
+            ${tel ? `<div class="alerta-item-data">📞 ${tel}</div>` : '<div class="alerta-item-data" style="color:#ff8a8a">⚠ Sem telefone cadastrado</div>'}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${linkWhats ? `<a href="${linkWhats}" target="_blank" class="btn" style="background:#25D366;color:#fff;padding:6px 12px;font-size:11px;text-decoration:none;display:inline-flex;align-items:center">💬 WhatsApp</a>` : ''}
+          <button class="btn green" onclick="marcarLembreteFeito(${l.id})" style="padding:6px 12px;font-size:11px">✓ Já liguei</button>
+          <button class="btn ghost" onclick="adiarLembrete(${l.id})" style="padding:6px 10px;font-size:11px">+1 dia</button>
+          <button class="btn danger" onclick="cancelarLembrete(${l.id})" style="padding:6px 10px;font-size:11px">×</button>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  banner.innerHTML = html;
+  banner.classList.remove('hidden');
+}
+
+function fecharAlertaPosVenda(){
+  const hojeStr = new Date().toISOString().slice(0,10);
+  localStorage.setItem('alertaPosVendaFechado', hojeStr);
+  document.getElementById('alertaPosVenda').classList.add('hidden');
+}
+
+async function marcarLembreteFeito(id){
+  try{
+    await sb.from('pos_venda_lembretes').update({
+      status: 'feito',
+      atualizado_em: new Date().toISOString()
+    }).eq('id', id);
+    toast('Pós-venda registrada ✓');
+    await carregarLembretesPosVenda();
+  }catch(e){ toast('Erro: ' + e.message, 'error'); }
+}
+
+async function adiarLembrete(id){
+  try{
+    const lembrete = lembretesPosVenda.find(l => l.id === id);
+    if(!lembrete) return;
+    const novaData = new Date(lembrete.data_lembrete + 'T00:00:00');
+    novaData.setDate(novaData.getDate() + 1);
+
+    await sb.from('pos_venda_lembretes').update({
+      data_lembrete: novaData.toISOString().slice(0,10),
+      atualizado_em: new Date().toISOString()
+    }).eq('id', id);
+    toast('Adiado pra amanhã');
+    await carregarLembretesPosVenda();
+  }catch(e){ toast('Erro: ' + e.message, 'error'); }
+}
+
+async function cancelarLembrete(id){
+  if(!confirm('Cancelar este lembrete? Não aparecerá mais.')) return;
+  try{
+    await sb.from('pos_venda_lembretes').update({
+      status: 'cancelado',
+      atualizado_em: new Date().toISOString()
+    }).eq('id', id);
+    toast('Lembrete cancelado');
+    await carregarLembretesPosVenda();
+  }catch(e){ toast('Erro: ' + e.message, 'error'); }
+}
+
 // --- Modal de novo/editar conta ---
 function abrirModalConta(){
   document.getElementById('modalContaTitle').textContent = 'Novo boleto';
@@ -3698,6 +4032,225 @@ function modulo10(num){
 }
 
 // ====================================================
+// RELATÓRIOS
+// ====================================================
+let relatorioPeriodoAtual = 'mes';
+let relatorioDataInicio = null;
+let relatorioDataFim = null;
+
+function filtrarPeriodoRelatorio(periodo){
+  relatorioPeriodoAtual = periodo;
+  document.querySelectorAll('.filtro-btn[data-periodo]').forEach(b=>{
+    b.classList.toggle('active', b.dataset.periodo === periodo);
+  });
+
+  const customDiv = document.getElementById('periodoCustom');
+  if(periodo === 'custom'){
+    customDiv.classList.remove('hidden');
+    return; // espera o usuário escolher as datas
+  }else{
+    customDiv.classList.add('hidden');
+  }
+
+  // Calcula intervalo do período
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  const fim = new Date(hoje);
+  fim.setHours(23,59,59,999);
+
+  let inicio;
+  if(periodo === 'hoje'){
+    inicio = new Date(hoje);
+  }else if(periodo === 'semana'){
+    inicio = new Date(hoje);
+    inicio.setDate(inicio.getDate() - 7);
+  }else if(periodo === 'mes'){
+    inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  }else if(periodo === 'ano'){
+    inicio = new Date(hoje.getFullYear(), 0, 1);
+  }else{
+    // tudo
+    inicio = null;
+  }
+
+  relatorioDataInicio = inicio;
+  relatorioDataFim = fim;
+  carregarRelatorios();
+}
+
+function aplicarPeriodoCustom(){
+  const de = document.getElementById('relatorioDe').value;
+  const ate = document.getElementById('relatorioAte').value;
+  if(!de || !ate) return;
+  relatorioDataInicio = new Date(de + 'T00:00:00');
+  relatorioDataFim = new Date(ate + 'T23:59:59');
+  carregarRelatorios();
+}
+
+async function carregarRelatorios(){
+  try{
+    // Busca todos orçamentos (vamos filtrar no JS pra ter controle)
+    let query = sb.from('orcamentos').select('*, orcamento_itens(*)');
+
+    if(relatorioDataInicio){
+      query = query.gte('criado_em', relatorioDataInicio.toISOString());
+    }
+    if(relatorioDataFim){
+      query = query.lte('criado_em', relatorioDataFim.toISOString());
+    }
+
+    const {data: orcamentos, error} = await query;
+    if(error) throw error;
+
+    processarRelatorios(orcamentos || []);
+  }catch(e){
+    console.error('Erro carregando relatórios:', e);
+    toast('Erro ao carregar relatórios: ' + e.message, 'error');
+  }
+}
+
+function processarRelatorios(orcamentos){
+  // ======= CARDS DE RESUMO =======
+  let totalVendido = 0, qtdVendido = 0;
+  let totalAberto = 0, qtdAberto = 0;
+  let totalRecusado = 0, qtdRecusado = 0;
+  let totalGeral = 0, qtdGeral = 0;
+
+  orcamentos.forEach(o => {
+    const v = parseFloat(o.valor_total) || 0;
+    qtdGeral++;
+    totalGeral += v;
+    if(o.status === 'vendido'){
+      totalVendido += v;
+      qtdVendido++;
+    }else if(o.status === 'recusado'){
+      totalRecusado += v;
+      qtdRecusado++;
+    }else{ // aberto
+      totalAberto += v;
+      qtdAberto++;
+    }
+  });
+
+  document.getElementById('relFaturamento').textContent = fmt(totalVendido);
+  document.getElementById('relFaturamentoQtd').textContent = qtdVendido + (qtdVendido === 1 ? ' venda' : ' vendas');
+  document.getElementById('relAberto').textContent = fmt(totalAberto);
+  document.getElementById('relAbertoQtd').textContent = qtdAberto + ' orçamentos';
+  document.getElementById('relRecusado').textContent = fmt(totalRecusado);
+  document.getElementById('relRecusadoQtd').textContent = qtdRecusado + ' orçamentos';
+  document.getElementById('relTotal').textContent = fmt(totalGeral);
+  document.getElementById('relTotalQtd').textContent = qtdGeral + ' orçamentos';
+
+  // ======= TAXA DE CONVERSÃO =======
+  // Considera apenas orçamentos finalizados (vendidos OU recusados)
+  const finalizados = qtdVendido + qtdRecusado;
+  const taxa = finalizados > 0 ? (qtdVendido / finalizados * 100) : 0;
+  document.getElementById('relConvNum').textContent = taxa.toFixed(1) + '%';
+  document.getElementById('relConvBar').style.width = taxa + '%';
+  document.getElementById('relConvVendidos').textContent = qtdVendido;
+  document.getElementById('relConvRecusados').textContent = qtdRecusado;
+
+  // Dica baseada na taxa
+  const dica = document.getElementById('relConvDica');
+  if(finalizados === 0){
+    dica.innerHTML = '💡 Sem orçamentos finalizados no período. Marque orçamentos como Vendido ou Recusado pra começar a ver a taxa.';
+  }else if(taxa >= 70){
+    dica.innerHTML = '🎯 Taxa excelente! Você está fechando muito bem. Continue assim!';
+  }else if(taxa >= 50){
+    dica.innerHTML = '👍 Taxa boa. Vale investigar os recusados pra entender o motivo (preço? prazo? outra ferragem?).';
+  }else if(taxa >= 30){
+    dica.innerHTML = '📌 Taxa razoável. Pense em revisar a estratégia de fechamento ou negociar mais.';
+  }else{
+    dica.innerHTML = '⚠️ Taxa baixa. Vale revisar preços, atendimento ou follow-up dos orçamentos abertos.';
+  }
+
+  // ======= TOP PRODUTOS (vendidos) =======
+  const produtosVendidos = {};  // {nome: {qtd_total, valor_total, qtd_orc}}
+  orcamentos.filter(o => o.status === 'vendido').forEach(o => {
+    (o.orcamento_itens || []).forEach(it => {
+      const tipo = it.tipo_produto || 'viga';
+      let nome;
+      if(tipo === 'produto') nome = it.produto_nome || 'Produto';
+      else if(tipo === 'sapata') nome = 'Sapata';
+      else if(tipo === 'bloco') nome = 'Bloco';
+      else if(tipo === 'pilar') nome = 'Pilar';
+      else if(tipo === 'espera') nome = 'Espera de Pilar';
+      else nome = 'Viga';
+
+      if(!produtosVendidos[nome]){
+        produtosVendidos[nome] = {qtd: 0, valor: 0, ocorrencias: 0};
+      }
+      produtosVendidos[nome].qtd += parseInt(it.quantidade) || 0;
+      produtosVendidos[nome].valor += parseFloat(it.preco_total) || 0;
+      produtosVendidos[nome].ocorrencias++;
+    });
+  });
+
+  const topProdutos = Object.entries(produtosVendidos)
+    .sort((a,b) => b[1].qtd - a[1].qtd)
+    .slice(0, 5);
+
+  const contProd = document.getElementById('relTopProdutos');
+  if(topProdutos.length === 0){
+    contProd.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:14px 0;text-align:center">Nenhuma venda no período. Marque orçamentos como Vendido pra ver os tops.</div>';
+  }else{
+    const maxQtd = topProdutos[0][1].qtd;
+    contProd.innerHTML = topProdutos.map(([nome, dados], i) => {
+      const pctBar = (dados.qtd / maxQtd) * 100;
+      const medalha = i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : `${i+1}º`));
+      return `
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-weight:700">${medalha} ${nome}</span>
+            <span style="font-family:'JetBrains Mono';font-size:13px"><b>${dados.qtd}</b> un · ${fmt(dados.valor)}</span>
+          </div>
+          <div style="background:var(--panel-2);border-radius:6px;height:8px;overflow:hidden">
+            <div style="background:linear-gradient(90deg,var(--accent),var(--accent-2));height:100%;width:${pctBar}%;transition:width .5s ease"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ======= TOP CLIENTES (vendidos) =======
+  const clientesVendidos = {};
+  orcamentos.filter(o => o.status === 'vendido').forEach(o => {
+    const nome = o.cliente_nome || 'Cliente avulso';
+    if(!clientesVendidos[nome]){
+      clientesVendidos[nome] = {valor: 0, qtd: 0};
+    }
+    clientesVendidos[nome].valor += parseFloat(o.valor_total) || 0;
+    clientesVendidos[nome].qtd++;
+  });
+
+  const topClientes = Object.entries(clientesVendidos)
+    .sort((a,b) => b[1].valor - a[1].valor)
+    .slice(0, 5);
+
+  const contCli = document.getElementById('relTopClientes');
+  if(topClientes.length === 0){
+    contCli.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:14px 0;text-align:center">Nenhuma venda no período.</div>';
+  }else{
+    const maxValor = topClientes[0][1].valor;
+    contCli.innerHTML = topClientes.map(([nome, dados], i) => {
+      const pctBar = (dados.valor / maxValor) * 100;
+      const medalha = i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : `${i+1}º`));
+      return `
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-weight:700">${medalha} ${nome}</span>
+            <span style="font-family:'JetBrains Mono';font-size:13px"><b>${fmt(dados.valor)}</b> · ${dados.qtd} ${dados.qtd === 1 ? 'venda' : 'vendas'}</span>
+          </div>
+          <div style="background:var(--panel-2);border-radius:6px;height:8px;overflow:hidden">
+            <div style="background:linear-gradient(90deg,var(--green),#6ee7a0);height:100%;width:${pctBar}%;transition:width .5s ease"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+// ====================================================
 // GERAR PDF
 // modo: 'salvar' (download direto) ou 'compartilhar' (Web Share API)
 // ====================================================
@@ -3744,7 +4297,6 @@ async function gerarPDF(modo){
   // Número do documento (rótulo muda conforme o status)
   let rotuloTopo = 'ORÇAMENTO Nº';
   if(orc.status === 'vendido')  rotuloTopo = 'VENDA Nº';
-  if(orc.status === 'aprovado') rotuloTopo = 'ORÇAMENTO APROVADO Nº';
   doc.setFontSize(9);
   doc.text(rotuloTopo, 196, 14, {align:'right'});
   doc.setFontSize(20);
@@ -3899,9 +4451,6 @@ async function gerarPDF(modo){
   if(orc.status === 'vendido'){
     tituloAviso = 'VENDA CONCLUÍDA';
     textoAviso = 'Documento referente à venda realizada na data acima.';
-  }else if(orc.status === 'aprovado'){
-    tituloAviso = 'APROVADO';
-    textoAviso = 'Orçamento aprovado pelo cliente. Aguardando fechamento.';
   }
   doc.text(tituloAviso, 14, y+5);
   doc.setTextColor(80,80,80);
@@ -4026,6 +4575,406 @@ async function gerarPDF(modo){
 }
 
 // ====================================================
+// CONTRATO DE COMPRA E VENDA
+// ====================================================
+function abrirModalContrato(){
+  // Limpa campos
+  document.getElementById('contratoPagamento').value = '';
+  document.getElementById('contratoPrazo').value = '';
+  document.getElementById('contratoFrete').value = 'incluso';
+  document.getElementById('contratoLocal').value = '';
+  document.getElementById('contratoObs').value = '';
+  document.getElementById('modalContrato').classList.add('show');
+}
+
+function fecharModalContrato(){
+  document.getElementById('modalContrato').classList.remove('show');
+}
+
+// Converte valor numérico para texto por extenso (versão simplificada para contratos)
+function valorPorExtenso(valor){
+  const v = Math.round(valor * 100) / 100;
+  const reais = Math.floor(v);
+  const centavos = Math.round((v - reais) * 100);
+
+  function unidades(n){
+    const u = ['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez',
+               'onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+    const d = ['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+    if(n < 20) return u[n];
+    const dez = Math.floor(n/10), un = n%10;
+    return d[dez] + (un ? ' e ' + u[un] : '');
+  }
+  function centenas(n){
+    const c = ['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+    if(n === 0) return '';
+    if(n === 100) return 'cem';
+    const cent = Math.floor(n/100), resto = n%100;
+    return c[cent] + (resto ? ' e ' + unidades(resto) : '');
+  }
+  function porExtenso(n){
+    if(n === 0) return 'zero';
+    if(n < 1000) return centenas(n);
+    if(n < 1000000){
+      const milhares = Math.floor(n/1000), resto = n%1000;
+      const txtMilhares = milhares === 1 ? 'mil' : centenas(milhares) + ' mil';
+      return txtMilhares + (resto ? (resto < 100 ? ' e ' : ' ') + centenas(resto) : '');
+    }
+    const milhoes = Math.floor(n/1000000), resto = n%1000000;
+    const txtMilhoes = milhoes === 1 ? 'um milhão' : centenas(milhoes) + ' milhões';
+    let resultado = txtMilhoes;
+    if(resto > 0){
+      if(resto < 1000) resultado += ' e ' + centenas(resto);
+      else resultado += ' ' + porExtenso(resto);
+    }
+    return resultado;
+  }
+
+  let txt = porExtenso(reais) + ' reais';
+  if(centavos > 0) txt += ' e ' + porExtenso(centavos) + ' centavos';
+  return txt;
+}
+
+async function gerarContrato(modo){
+  modo = modo || 'salvar';
+  const pagamento = document.getElementById('contratoPagamento').value.trim();
+  const prazo = document.getElementById('contratoPrazo').value.trim();
+  const frete = document.getElementById('contratoFrete').value;
+  const localManual = document.getElementById('contratoLocal').value.trim();
+  const obsContrato = document.getElementById('contratoObs').value.trim();
+
+  if(!pagamento){ toast('Informe a forma de pagamento', 'error'); return; }
+  if(!prazo){ toast('Informe o prazo de entrega', 'error'); return; }
+
+  const {orc, itens} = window._orcAtual;
+  const cliente = clientes.find(c => c.id == orc.cliente_id);
+  const {entrega: entregaOrc} = extrairEntregaEObs(orc.observacoes);
+  const localEntrega = localManual || entregaOrc || (cliente ? `${cliente.endereco || ''}, ${cliente.cidade || ''}` : '');
+
+  if(!cliente){
+    toast('Este orçamento não tem cliente cadastrado. Cadastre um cliente antes de gerar contrato.', 'error');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // === DADOS FIXOS DA VENDEDORA ===
+  const vendedora = {
+    nome: 'TL FERRAGENS LTDA',
+    cnpj: '36.248.106/0001-56',
+    ie: '13.802.158-9',
+    endereco: 'Rua Das Dálias, nº 73, Lote 0012, Bairro Parque Eldorado',
+    cidade: 'Primavera do Leste',
+    uf: 'MT',
+    cep: '78.850-000',
+    socia: {
+      nome: 'LEIDE MARIA DA LUZ RIBEIRO',
+      nacionalidade: 'brasileira',
+      estadoCivil: 'divorciada',
+      nascimento: '02/06/1986',
+      rg: '598328890 SSP-MT',
+      cpf: '026.943.375-97'
+    }
+  };
+
+  // === LAYOUT ===
+  const cor1 = [107, 70, 193]; // roxo do contrato
+  const cor2 = [40, 40, 40];
+  const corCinza = [120, 120, 120];
+
+  let y = 20;
+
+  // Cabeçalho
+  doc.setFillColor(...cor1);
+  doc.rect(0, 0, 210, 14, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.text('CONTRATO DE COMPRA E VENDA Nº ' + String(orc.numero).padStart(4,'0'), 105, 9, {align:'center'});
+
+  y = 22;
+  doc.setTextColor(...cor2);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.text('CONTRATO DE COMPRA E VENDA DE PRODUTOS', 105, y, {align:'center'});
+  y += 5;
+  doc.setFont('helvetica','italic');
+  doc.setFontSize(9);
+  doc.setTextColor(...corCinza);
+  doc.text('(Ferragens, vergalhão e armações para construção civil)', 105, y, {align:'center'});
+  y += 10;
+
+  // === VENDEDORA ===
+  doc.setTextColor(...cor2);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('VENDEDORA:', 14, y);
+  y += 6;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  const txtVendedora =
+    `${vendedora.nome}, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº ${vendedora.cnpj}, ` +
+    `Inscrição Estadual nº ${vendedora.ie}, com sede na ${vendedora.endereco}, CEP ${vendedora.cep}, ` +
+    `na cidade de ${vendedora.cidade}, Estado de ${vendedora.uf}, neste ato representada por sua administradora ` +
+    `e única sócia, a Sra. ${vendedora.socia.nome}, ${vendedora.socia.nacionalidade}, ${vendedora.socia.estadoCivil}, ` +
+    `nascida em ${vendedora.socia.nascimento}, portadora da cédula de identidade RG nº ${vendedora.socia.rg} ` +
+    `e CPF nº ${vendedora.socia.cpf}, doravante denominada simplesmente VENDEDORA.`;
+  const linhasV = doc.splitTextToSize(txtVendedora, 182);
+  doc.text(linhasV, 14, y);
+  y += linhasV.length * 4 + 4;
+
+  // === COMPRADOR ===
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('COMPRADOR:', 14, y);
+  y += 6;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+
+  const compradorEhPJ = cliente.documento && cliente.documento.replace(/\D/g,'').length === 14;
+  const tipoDoc = compradorEhPJ ? 'CNPJ' : 'CPF';
+  const partesEnd = [cliente.endereco, cliente.cidade].filter(Boolean).join(', ');
+  const txtComprador =
+    `${cliente.nome}, ${compradorEhPJ ? 'pessoa jurídica de direito privado' : 'pessoa física'}, ` +
+    `${cliente.documento ? `inscrita no ${tipoDoc} sob o nº ${cliente.documento}, ` : ''}` +
+    `${partesEnd ? `com endereço na ${partesEnd}, ` : ''}` +
+    `${cliente.telefone ? `telefone ${cliente.telefone}, ` : ''}` +
+    `doravante denominado simplesmente COMPRADOR.`;
+  const linhasC = doc.splitTextToSize(txtComprador, 182);
+  doc.text(linhasC, 14, y);
+  y += linhasC.length * 4 + 6;
+
+  doc.setFontSize(9);
+  doc.text('As partes acima identificadas têm entre si, justo e acertado, o presente Contrato de Compra e Venda', 14, y);
+  y += 4;
+  doc.text('de Produtos, que se regerá pelas cláusulas e condições a seguir estabelecidas.', 14, y);
+  y += 8;
+
+  // === FUNÇÃO AUXILIAR PRA QUEBRAR PÁGINA ===
+  function checaPagina(necessario){
+    if(y + necessario > 280){
+      doc.addPage();
+      y = 20;
+    }
+  }
+
+  function clausula(numero, titulo, textos){
+    checaPagina(20);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...cor1);
+    doc.text(`CLÁUSULA ${numero} - ${titulo}`, 14, y);
+    y += 6;
+    doc.setTextColor(...cor2);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    textos.forEach(t => {
+      const linhas = doc.splitTextToSize(t, 182);
+      checaPagina(linhas.length * 4 + 3);
+      doc.text(linhas, 14, y);
+      y += linhas.length * 4 + 3;
+    });
+    y += 3;
+  }
+
+  // === CLÁUSULA 1 - OBJETO ===
+  const dataOrc = new Date(orc.criado_em).toLocaleDateString('pt-BR');
+  clausula('PRIMEIRA', 'DO OBJETO', [
+    `1.1. O presente contrato tem como objeto a compra e venda de produtos para construção civil, ` +
+    `conforme especificações do Orçamento nº ${String(orc.numero).padStart(4,'0')} da VENDEDORA, datado de ${dataOrc}, destinado ao COMPRADOR.`
+  ]);
+
+  // Tabela de itens (simplificada)
+  checaPagina(40);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setFillColor(240, 240, 240);
+  doc.rect(14, y-3, 182, 6, 'F');
+  doc.text('QT', 17, y);
+  doc.text('DESCRIÇÃO', 30, y);
+  doc.text('VALOR', 192, y, {align:'right'});
+  y += 5;
+  doc.setFont('helvetica','normal');
+
+  itens.forEach(it => {
+    checaPagina(8);
+    const tipo = it.tipo_produto || 'viga';
+    let nome = '';
+    if(tipo === 'produto') nome = it.produto_nome || 'Produto';
+    else if(tipo === 'sapata') nome = `Sapata ${it.sapata_tamanho_cm}×${it.sapata_tamanho_cm}cm`;
+    else if(tipo === 'bloco'){
+      const sub = (it.bloco_dados && it.bloco_dados.subtipo === 'composto') ? 'Composto' : 'Simples';
+      nome = `Bloco ${sub}`;
+    }
+    else if(tipo === 'pilar') nome = `Pilar ${it.tamanho_metros}m`;
+    else if(tipo === 'espera') nome = `Espera de Pilar ${it.tamanho_metros}m`;
+    else nome = `Viga ${it.tamanho_metros}m`;
+
+    doc.text(String(it.quantidade), 17, y);
+    doc.text(nome, 30, y);
+    doc.text(fmt(it.preco_total), 192, y, {align:'right'});
+    y += 5;
+  });
+
+  // Linha total
+  y += 2;
+  doc.setDrawColor(...cor1);
+  doc.line(14, y, 196, y);
+  y += 5;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.text('VALOR TOTAL DO CONTRATO:', 30, y);
+  doc.setTextColor(...cor1);
+  doc.text(fmt(orc.valor_total), 192, y, {align:'right'});
+  doc.setTextColor(...cor2);
+  y += 8;
+
+  // 1.2 - valor por extenso
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  const valorExt = valorPorExtenso(parseFloat(orc.valor_total));
+  const txt12 = `1.2. O valor total do presente contrato é de ${fmt(orc.valor_total)} (${valorExt}).`;
+  const linhas12 = doc.splitTextToSize(txt12, 182);
+  doc.text(linhas12, 14, y);
+  y += linhas12.length * 4 + 6;
+
+  // === CLÁUSULA 2 - PREÇO E PAGAMENTO ===
+  clausula('SEGUNDA', 'DO PREÇO E FORMA DE PAGAMENTO', [
+    `2.1. O preço total ajustado para a presente compra e venda é de ${fmt(orc.valor_total)}, a ser pago pelo COMPRADOR à VENDEDORA da seguinte forma:`,
+    pagamento,
+    `2.2. O atraso no pagamento sujeitará o COMPRADOR ao pagamento de multa de 2% (dois por cento) sobre o valor em atraso, acrescido de juros moratórios de 1% (um por cento) ao mês.`
+  ]);
+
+  // === CLÁUSULA 3 - ENTREGA ===
+  let txtFrete = '';
+  if(frete === 'incluso') txtFrete = 'O frete está incluso no valor total do contrato e é de responsabilidade da VENDEDORA.';
+  else if(frete === 'separado') txtFrete = 'O frete é de responsabilidade do COMPRADOR e cobrado em separado.';
+  else txtFrete = 'A retirada dos produtos será feita pelo COMPRADOR diretamente na sede da VENDEDORA, sem cobrança de frete.';
+
+  clausula('TERCEIRA', 'DA ENTREGA', [
+    `3.1. ${frete === 'retira' ? 'A retirada dos produtos' : 'A entrega dos produtos'} ocorrerá ${frete === 'retira' ? 'na sede da VENDEDORA' : (localEntrega ? `no endereço: ${localEntrega}` : 'no local indicado pelo COMPRADOR')}.`,
+    `3.2. ${txtFrete}`,
+    `3.3. Prazo de entrega: ${prazo}.`,
+    `3.4. No ato do recebimento, o COMPRADOR deverá verificar a conformidade dos produtos com as especificações contratadas, devendo manifestar eventuais divergências no prazo de 5 (cinco) dias úteis.`
+  ]);
+
+  // === CLÁUSULA 4 - OBRIGAÇÕES ===
+  clausula('QUARTA', 'DAS OBRIGAÇÕES DAS PARTES', [
+    `4.1. A VENDEDORA se obriga a entregar os produtos nas condições e especificações acordadas, em perfeito estado, e a emitir a respectiva Nota Fiscal de venda na forma da legislação vigente.`,
+    `4.2. O COMPRADOR se obriga a efetuar os pagamentos nas datas estipuladas e a receber os produtos no local e horário combinados, disponibilizando os meios necessários para descarga (quando aplicável).`
+  ]);
+
+  // === CLÁUSULA 5 - GARANTIA ===
+  clausula('QUINTA', 'DA GARANTIA', [
+    `5.1. A VENDEDORA garante que os produtos entregues estarão em conformidade com as especificações técnicas acordadas, responsabilizando-se pela substituição de produtos defeituosos no prazo de 30 (trinta) dias contados da notificação pelo COMPRADOR.`
+  ]);
+
+  // === CLÁUSULA 6 - RESCISÃO ===
+  clausula('SEXTA', 'DA RESCISÃO', [
+    `6.1. O presente contrato poderá ser rescindido por qualquer das partes em caso de descumprimento de quaisquer de suas cláusulas, mediante notificação prévia por escrito.`,
+    `6.2. Em caso de rescisão por culpa do COMPRADOR, este perderá em favor da VENDEDORA o valor correspondente a 10% (dez por cento) do valor total do contrato, a título de perdas e danos.`
+  ]);
+
+  // === CLÁUSULA 7 - DISPOSIÇÕES GERAIS ===
+  if(obsContrato){
+    clausula('SÉTIMA', 'DAS DISPOSIÇÕES ESPECÍFICAS', [
+      obsContrato
+    ]);
+  }
+
+  // === CLÁUSULA FORO ===
+  clausula(obsContrato ? 'OITAVA' : 'SÉTIMA', 'DO FORO', [
+    `Para dirimir quaisquer controvérsias oriundas do presente contrato, as partes elegem o Foro da Comarca de ${vendedora.cidade} - ${vendedora.uf}, com renúncia expressa a qualquer outro, por mais privilegiado que seja.`
+  ]);
+
+  // === ASSINATURAS ===
+  checaPagina(60);
+  y += 4;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  const hojeData = new Date().toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+  doc.text(`E por estarem assim justas e contratadas, as partes firmam o presente instrumento em 02 (duas) vias de igual teor.`, 14, y);
+  y += 6;
+  doc.text(`${vendedora.cidade} - ${vendedora.uf}, ${hojeData}.`, 14, y);
+  y += 18;
+
+  // Linha vendedora
+  doc.line(30, y, 100, y);
+  y += 5;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9);
+  doc.text(vendedora.nome, 65, y, {align:'center'});
+  y += 4;
+  doc.setFont('helvetica','normal');
+  doc.text(vendedora.socia.nome, 65, y, {align:'center'});
+  y += 4;
+  doc.text(`CPF: ${vendedora.socia.cpf}`, 65, y, {align:'center'});
+  y += 4;
+  doc.setFont('helvetica','bold');
+  doc.text('VENDEDORA', 65, y, {align:'center'});
+
+  // Linha comprador
+  y -= 17;
+  doc.setFont('helvetica','normal');
+  doc.line(110, y, 180, y);
+  y += 5;
+  doc.setFont('helvetica','bold');
+  doc.text(cliente.nome, 145, y, {align:'center'});
+  y += 4;
+  doc.setFont('helvetica','normal');
+  if(cliente.documento){
+    doc.text(`${tipoDoc}: ${cliente.documento}`, 145, y, {align:'center'});
+    y += 4;
+  }else{
+    y += 4;
+  }
+  doc.setFont('helvetica','bold');
+  doc.text('COMPRADOR', 145, y, {align:'center'});
+
+  // Rodapé
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= totalPaginas; i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...corCinza);
+    doc.text(`Contrato gerado em ${new Date().toLocaleString('pt-BR')}`, 14, 290);
+    doc.text(`Página ${i} de ${totalPaginas}`, 196, 290, {align:'right'});
+  }
+
+  // === Salvar ou Compartilhar ===
+  const nomeArquivo = `Contrato-${String(orc.numero).padStart(4,'0')}-${(cliente.nome||'').replace(/[^a-z0-9]/gi,'-')}.pdf`;
+
+  fecharModalContrato();
+
+  if(modo === 'compartilhar'){
+    try{
+      const blob = doc.output('blob');
+      const file = new File([blob], nomeArquivo, { type: 'application/pdf' });
+      if(navigator.canShare && navigator.canShare({ files: [file] })){
+        await navigator.share({
+          files: [file],
+          title: `Contrato ${orc.numero}`,
+          text: `Contrato de Compra e Venda nº ${orc.numero} - ${cliente.nome}`
+        });
+        toast('Contrato compartilhado! 📲');
+      }else{
+        doc.save(nomeArquivo);
+        toast('💡 Contrato salvo! Use o WhatsApp Web pra mandar.');
+      }
+    }catch(e){
+      if(e.name === 'AbortError') return;
+      doc.save(nomeArquivo);
+      toast('Contrato salvo nos Downloads');
+    }
+  }else{
+    doc.save(nomeArquivo);
+    toast('Contrato salvo! 📝');
+  }
+}
+
+// ====================================================
 // INICIALIZAÇÃO
 // ====================================================
 (async ()=>{
@@ -4052,6 +5001,8 @@ async function gerarPDF(modo){
       mostrarAlertasBoletos();
     }
   }catch(e){}
+  // Pré-carrega lembretes de pós-venda
+  await carregarLembretesPosVenda();
 })();
 </script>
 </body>
