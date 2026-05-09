@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/nfe/*.js": {
+      "maxDuration": 30
+    }
+  }
+}
