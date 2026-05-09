@@ -374,6 +374,7 @@
   <nav>
     <button class="active" data-tab="orcamento">📝 Novo orçamento</button>
     <button data-tab="historico">📋 Histórico</button>
+    <button data-tab="notas">📄 Notas Fiscais</button>
     <button data-tab="clientes">👥 Clientes</button>
     <button data-tab="produtos">📦 Produtos</button>
     <button data-tab="contas">💰 Contas a Pagar</button>
@@ -783,6 +784,24 @@
       <h2>Histórico de orçamentos</h2>
       <div class="desc">Toque em qualquer orçamento pra ver detalhes, gerar PDF ou marcar como vendido</div>
       <div id="historicoLista">
+        <div class="loader"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== TAB NOTAS FISCAIS ============== -->
+  <section id="tab-notas" class="hidden">
+    <div class="card">
+      <div class="row-flex" style="justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 style="margin:0">Notas Fiscais Eletrônicas</h2>
+          <div class="desc" id="nfeAmbienteLabel">Ambiente: carregando...</div>
+        </div>
+        <div class="row-flex" style="gap:8px">
+          <button class="btn ghost" onclick="carregarNotasFiscais()">🔄 Atualizar</button>
+        </div>
+      </div>
+      <div id="notasLista">
         <div class="loader"></div>
       </div>
     </div>
@@ -1214,6 +1233,85 @@
   </div>
 </div>
 
+<!-- ============== MODAIS NFe ============== -->
+
+<!-- Modal: Confirmar Emissão -->
+<div class="modal-overlay" id="modalEmitirNfe">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3>Emitir Nota Fiscal</h3>
+      <button class="modal-close" onclick="fecharModal('modalEmitirNfe')">×</button>
+    </div>
+    <div id="emitirNfeConteudo">
+      <p class="desc" style="margin-bottom:14px">Confira os dados antes de emitir. A NFe vai ser enviada para a SEFAZ.</p>
+      <div id="emitirNfeResumo"></div>
+      <div class="form-group" style="margin-top:14px">
+        <label>Natureza da operação</label>
+        <input type="text" id="emitirNfeNatureza" value="Venda de mercadoria" maxlength="60">
+      </div>
+      <div class="row-flex" style="justify-content:flex-end;gap:8px;margin-top:18px">
+        <button class="btn ghost" onclick="fecharModal('modalEmitirNfe')">Cancelar</button>
+        <button class="btn" id="btnConfirmarEmissao" onclick="confirmarEmissaoNfe()">Emitir NFe</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cancelar NFe -->
+<div class="modal-overlay" id="modalCancelarNfe">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3>Cancelar Nota Fiscal</h3>
+      <button class="modal-close" onclick="fecharModal('modalCancelarNfe')">×</button>
+    </div>
+    <div>
+      <p class="desc" style="margin-bottom:14px">⚠️ Cancelamento só pode ser feito até 24h após a emissão. A justificativa deve ter entre 15 e 255 caracteres.</p>
+      <div class="form-group">
+        <label>Justificativa</label>
+        <textarea id="cancelarNfeJustificativa" rows="4" maxlength="255" placeholder="Ex: Erro de digitação no valor da nota fiscal"></textarea>
+        <div class="desc" id="cancelarNfeContador">0 / 255 (mínimo 15)</div>
+      </div>
+      <div class="row-flex" style="justify-content:flex-end;gap:8px;margin-top:18px">
+        <button class="btn ghost" onclick="fecharModal('modalCancelarNfe')">Voltar</button>
+        <button class="btn" id="btnConfirmarCancelamento" onclick="confirmarCancelamentoNfe()">Cancelar NFe</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Carta de Correção -->
+<div class="modal-overlay" id="modalCCeNfe">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3>Carta de Correção (CCe)</h3>
+      <button class="modal-close" onclick="fecharModal('modalCCeNfe')">×</button>
+    </div>
+    <div>
+      <p class="desc" style="margin-bottom:14px">A CCe corrige erros pequenos (endereço, observações). NÃO pode mudar valores, CNPJ, NCM ou data. Mínimo 15, máximo 1000 caracteres.</p>
+      <div class="form-group">
+        <label>Texto da correção</label>
+        <textarea id="cceTexto" rows="6" maxlength="1000" placeholder="Ex: Onde se lê 'Rua A 100' leia-se 'Rua A 1000'"></textarea>
+        <div class="desc" id="cceContador">0 / 1000 (mínimo 15)</div>
+      </div>
+      <div class="row-flex" style="justify-content:flex-end;gap:8px;margin-top:18px">
+        <button class="btn ghost" onclick="fecharModal('modalCCeNfe')">Voltar</button>
+        <button class="btn" id="btnConfirmarCCe" onclick="confirmarCCe()">Enviar CCe</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detalhes da NFe -->
+<div class="modal-overlay" id="modalDetalheNfe">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <h3 id="modalDetalheNfeTitle">Nota Fiscal</h3>
+      <button class="modal-close" onclick="fecharModal('modalDetalheNfe')">×</button>
+    </div>
+    <div id="modalDetalheNfeConteudo"></div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -1274,10 +1372,11 @@ document.querySelectorAll('nav button').forEach(b=>{
   b.onclick = ()=>{
     document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
-    ['orcamento','historico','clientes','produtos','contas','relatorios','config'].forEach(t=>{
+    ['orcamento','historico','notas','clientes','produtos','contas','relatorios','config'].forEach(t=>{
       document.getElementById('tab-'+t).classList.toggle('hidden', b.dataset.tab!==t);
     });
     if(b.dataset.tab==='historico') carregarHistorico();
+    if(b.dataset.tab==='notas')     carregarNotasFiscais();
     if(b.dataset.tab==='clientes')  carregarClientes(true);
     if(b.dataset.tab==='produtos')  carregarProdutos(true);
     if(b.dataset.tab==='contas')    carregarContas();
@@ -2890,6 +2989,7 @@ function renderOrcamentoDetalhe(orc, itens){
       <button class="btn green grow" onclick="gerarPDF('salvar')">📄 Salvar PDF</button>
       <button class="btn so-mobile" style="background:#25D366;color:#fff" onclick="gerarPDF('compartilhar')">📲 Compartilhar</button>
       <button class="btn" style="background:#6b46c1;color:#fff" onclick="abrirModalContrato()">📝 Gerar contrato</button>
+      ${orc.status === 'vendido' ? `<button class="btn" style="background:#0ea5e9;color:#fff" onclick="abrirModalEmitirNfe(${orc.id})">📄 Emitir NFe</button>` : ''}
       ${orc.status !== 'vendido' ? `<button class="btn" style="background:var(--blue);color:#fff" onclick="editarOrcamento(${orc.id})">✏️ Editar</button>` : ''}
       <button class="btn ghost" onclick="duplicarOrcamento(${orc.id})">Duplicar</button>
       <button class="btn danger" onclick="excluirOrcamento(${orc.id})">Excluir</button>
@@ -5004,6 +5104,335 @@ async function gerarContrato(modo){
   // Pré-carrega lembretes de pós-venda
   await carregarLembretesPosVenda();
 })();
+
+// ====================================================
+// NOTAS FISCAIS ELETRÔNICAS (NFe) - Focus NFe
+// ====================================================
+
+// Detecta a base URL das APIs (mesma origem do site)
+const NFE_API_BASE = '';  // Mesma origem (Vercel)
+
+// Helper genérico de fetch para as APIs de NFe
+async function nfeApi(endpoint, options = {}) {
+  const url = NFE_API_BASE + '/api/nfe/' + endpoint;
+  const opts = {
+    method: options.method || 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  };
+  if (options.body) opts.body = JSON.stringify(options.body);
+  const res = await fetch(url, opts);
+  let data;
+  try { data = await res.json(); } catch (e) { data = { error: 'Resposta inválida' }; }
+  return { ok: res.ok, status: res.status, data };
+}
+
+// Helper de modais
+function abrirModal(id){ document.getElementById(id).classList.add('show'); }
+function fecharModal(id){ document.getElementById(id).classList.remove('show'); }
+
+// ----- Aba Notas Fiscais: lista geral -----
+async function carregarNotasFiscais(){
+  const cont = document.getElementById('notasLista');
+  cont.innerHTML = '<div class="loader"></div>';
+
+  // Carrega ambiente
+  try {
+    const {data: cfg} = await sb.from('configuracao_fiscal').select('ambiente_padrao').limit(1).single();
+    const amb = cfg?.ambiente_padrao || 'homologacao';
+    const lbl = document.getElementById('nfeAmbienteLabel');
+    if (lbl) {
+      lbl.innerHTML = amb === 'producao'
+        ? '🟢 Ambiente: <b>PRODUÇÃO</b> (notas reais com valor fiscal)'
+        : '🟡 Ambiente: <b>HOMOLOGAÇÃO</b> (testes - notas SEM valor fiscal)';
+    }
+  } catch(e) {}
+
+  try {
+    const {data, error} = await sb.from('notas_fiscais')
+      .select('*')
+      .order('criado_em', {ascending:false})
+      .limit(200);
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      cont.innerHTML = '<div class="empty"><h3>Nenhuma nota fiscal emitida ainda</h3><p>Para emitir, abra um orçamento com status "Vendido" no histórico e clique em "📄 Emitir NFe".</p></div>';
+      return;
+    }
+
+    const statusPill = (s) => {
+      const map = {
+        'autorizado': '<span class="pill green">Autorizada</span>',
+        'cancelado': '<span class="pill red">Cancelada</span>',
+        'processando_autorizacao': '<span class="pill orange">Processando</span>',
+        'processando': '<span class="pill orange">Processando</span>',
+        'erro_autorizacao': '<span class="pill red">Erro</span>',
+        'denegado': '<span class="pill red">Denegada</span>'
+      };
+      return map[s] || `<span class="pill">${s||'?'}</span>`;
+    };
+
+    cont.innerHTML = data.map(n => `
+      <div class="list-item" onclick="abrirDetalheNfe('${n.ref_focus}')">
+        <div class="list-item-header">
+          <div>
+            <div class="list-item-title">NF ${n.numero || '?'}/${n.serie || 1} · ${n.cliente_nome || '-'} ${statusPill(n.status)}</div>
+            <div class="list-item-sub">${fmtData(n.criado_em)} · ${n.ambiente === 'producao' ? '🟢 Produção' : '🟡 Homologação'}${n.chave_acesso ? ' · Chave: '+n.chave_acesso.slice(-8) : ''}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="item-card-price">${fmt(n.valor_total||0)}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    cont.innerHTML = '<div class="empty">Erro ao carregar: '+e.message+'</div>';
+  }
+}
+
+// ----- Modal Emitir NFe -----
+async function abrirModalEmitirNfe(orcamentoId){
+  window._nfeOrcamentoId = orcamentoId;
+
+  // Busca orçamento + cliente para mostrar resumo
+  try {
+    const {data: orc} = await sb.from('orcamentos').select('*').eq('id', orcamentoId).single();
+    const {data: cli} = orc?.cliente_id
+      ? await sb.from('clientes').select('*').eq('id', orc.cliente_id).single()
+      : {data: null};
+
+    let avisos = [];
+    if (!cli) avisos.push('⚠️ Orçamento sem cliente cadastrado.');
+    else {
+      if (!cli.documento) avisos.push('⚠️ Cliente sem CPF/CNPJ.');
+      if (!cli.cep) avisos.push('⚠️ Cliente sem CEP.');
+      if (!cli.cidade) avisos.push('⚠️ Cliente sem cidade.');
+      if (!cli.codigo_ibge_municipio) avisos.push('⚠️ Cliente sem código IBGE do município.');
+    }
+
+    const resumo = `
+      <div style="background:var(--panel-2);padding:12px;border-radius:8px;line-height:1.6">
+        <div><b>Orçamento:</b> #${orc.numero}</div>
+        <div><b>Cliente:</b> ${cli ? cli.nome : '(sem cliente)'}</div>
+        <div><b>CPF/CNPJ:</b> ${cli?.documento || '-'}</div>
+        <div><b>Valor total:</b> ${fmt(orc.valor_total)}</div>
+      </div>
+      ${avisos.length ? '<div style="background:#fef3c7;color:#92400e;padding:10px;border-radius:6px;margin-top:10px;font-size:13px">'+avisos.join('<br>')+'</div>' : ''}
+    `;
+    document.getElementById('emitirNfeResumo').innerHTML = resumo;
+    document.getElementById('btnConfirmarEmissao').disabled = avisos.length > 0;
+    abrirModal('modalEmitirNfe');
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+}
+
+async function confirmarEmissaoNfe(){
+  const btn = document.getElementById('btnConfirmarEmissao');
+  const orcamentoId = window._nfeOrcamentoId;
+  const natureza = document.getElementById('emitirNfeNatureza').value.trim() || 'Venda de mercadoria';
+  if (!orcamentoId) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Emitindo...';
+
+  try {
+    const {ok, data} = await nfeApi('emitir', {
+      method: 'POST',
+      body: { orcamento_id: orcamentoId, natureza_operacao: natureza }
+    });
+
+    if (ok && data.success) {
+      toast('NFe enviada para a SEFAZ! Aguarde processamento.', 'success');
+      fecharModal('modalEmitirNfe');
+      // Aguarda 3s e tenta consultar status
+      setTimeout(() => consultarStatusNfe(data.ref, true), 3000);
+    } else {
+      const msg = data.focus?.mensagem || data.focus?.erros?.[0]?.mensagem || data.error || 'Erro desconhecido';
+      toast('Falha: ' + msg, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Emitir NFe';
+    }
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Emitir NFe';
+  }
+}
+
+// ----- Consultar status -----
+async function consultarStatusNfe(ref, silencioso){
+  if (!ref) return;
+  try {
+    const {ok, data} = await nfeApi('consultar?ref=' + encodeURIComponent(ref));
+    if (ok) {
+      const status = data.focus?.status;
+      if (!silencioso) {
+        toast('Status: ' + (status || 'desconhecido'), status === 'autorizado' ? 'success' : 'info');
+      } else if (status === 'autorizado') {
+        toast('NFe autorizada com sucesso! ✅', 'success');
+      } else if (status === 'erro_autorizacao' || status === 'denegado') {
+        const msg = data.focus?.mensagem_sefaz || data.focus?.erros?.[0]?.mensagem || 'Verifique a aba Notas Fiscais';
+        toast('NFe rejeitada: ' + msg, 'error');
+      }
+      // Recarrega a lista de notas se a aba estiver aberta
+      if (!document.getElementById('tab-notas').classList.contains('hidden')) {
+        carregarNotasFiscais();
+      }
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ----- Detalhe da NFe -----
+async function abrirDetalheNfe(ref){
+  window._nfeRefAtual = ref;
+  try {
+    const {data: nota, error} = await sb.from('notas_fiscais').select('*').eq('ref_focus', ref).single();
+    if (error || !nota) throw new Error('Nota não encontrada');
+
+    document.getElementById('modalDetalheNfeTitle').textContent = `NF ${nota.numero || '?'}/${nota.serie || 1}`;
+
+    const statusMap = {
+      'autorizado': {cor: 'var(--green)', txt: 'Autorizada ✅'},
+      'cancelado': {cor: 'var(--red)', txt: 'Cancelada ❌'},
+      'processando_autorizacao': {cor: 'var(--orange)', txt: 'Processando ⏳'},
+      'processando': {cor: 'var(--orange)', txt: 'Processando ⏳'},
+      'erro_autorizacao': {cor: 'var(--red)', txt: 'Erro de autorização ⚠️'},
+      'denegado': {cor: 'var(--red)', txt: 'Denegada ⚠️'}
+    };
+    const stInfo = statusMap[nota.status] || {cor:'var(--muted)', txt: nota.status||'?'};
+
+    const ccesHtml = (Array.isArray(nota.cartas_correcao) && nota.cartas_correcao.length)
+      ? `<div style="margin-top:14px"><b>Cartas de Correção:</b><ul style="margin:6px 0 0 18px">${nota.cartas_correcao.map(c=>`<li>#${c.sequencia} - ${fmtData(c.data)}<br><i style="color:var(--muted);font-size:12px">${c.correcao}</i></li>`).join('')}</ul></div>`
+      : '';
+
+    const podeXml = !!nota.xml_url;
+    const podeDanfe = !!nota.danfe_url;
+    const podeCancelar = nota.status === 'autorizado';
+    const podeCCe = nota.status === 'autorizado';
+
+    document.getElementById('modalDetalheNfeConteudo').innerHTML = `
+      <div style="background:var(--panel-2);padding:14px;border-radius:8px;line-height:1.7">
+        <div><b>Status:</b> <span style="color:${stInfo.cor}"><b>${stInfo.txt}</b></span></div>
+        <div><b>Ambiente:</b> ${nota.ambiente === 'producao' ? '🟢 Produção' : '🟡 Homologação'}</div>
+        <div><b>Cliente:</b> ${nota.cliente_nome || '-'}</div>
+        <div><b>CPF/CNPJ:</b> ${nota.cliente_documento || '-'}</div>
+        <div><b>Valor total:</b> ${fmt(nota.valor_total||0)}</div>
+        <div><b>Emitida em:</b> ${fmtData(nota.criado_em)}</div>
+        ${nota.chave_acesso ? `<div><b>Chave:</b> <code style="font-size:11px">${nota.chave_acesso}</code></div>` : ''}
+        ${nota.protocolo ? `<div><b>Protocolo:</b> ${nota.protocolo}</div>` : ''}
+        ${nota.mensagem_sefaz ? `<div><b>SEFAZ:</b> ${nota.mensagem_sefaz}</div>` : ''}
+        ${nota.cancelada_em ? `<div><b>Cancelada em:</b> ${fmtData(nota.cancelada_em)}<br><i style="color:var(--muted);font-size:13px">${nota.justificativa_cancelamento||''}</i></div>` : ''}
+        ${ccesHtml}
+      </div>
+      <div class="row-flex" style="gap:8px;margin-top:16px;flex-wrap:wrap">
+        ${podeXml ? `<a class="btn ghost" href="${nota.xml_url}" target="_blank">⬇️ XML</a>` : ''}
+        ${podeDanfe ? `<a class="btn ghost" href="${nota.danfe_url}" target="_blank">📄 DANFE</a>` : ''}
+        <button class="btn ghost" onclick="consultarStatusNfe('${nota.ref_focus}')">🔄 Atualizar status</button>
+        ${podeCCe ? `<button class="btn" style="background:#0ea5e9;color:#fff" onclick="abrirModalCCe('${nota.ref_focus}')">✏️ Carta de Correção</button>` : ''}
+        ${podeCancelar ? `<button class="btn danger" onclick="abrirModalCancelar('${nota.ref_focus}')">❌ Cancelar NFe</button>` : ''}
+      </div>
+    `;
+    abrirModal('modalDetalheNfe');
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+}
+
+// ----- Cancelar NFe -----
+function abrirModalCancelar(ref){
+  window._nfeRefCancelar = ref;
+  document.getElementById('cancelarNfeJustificativa').value = '';
+  document.getElementById('cancelarNfeContador').textContent = '0 / 255 (mínimo 15)';
+  fecharModal('modalDetalheNfe');
+  abrirModal('modalCancelarNfe');
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'cancelarNfeJustificativa') {
+    const len = e.target.value.length;
+    document.getElementById('cancelarNfeContador').textContent = `${len} / 255 (mínimo 15)`;
+  }
+  if (e.target && e.target.id === 'cceTexto') {
+    const len = e.target.value.length;
+    document.getElementById('cceContador').textContent = `${len} / 1000 (mínimo 15)`;
+  }
+});
+
+async function confirmarCancelamentoNfe(){
+  const btn = document.getElementById('btnConfirmarCancelamento');
+  const ref = window._nfeRefCancelar;
+  const just = document.getElementById('cancelarNfeJustificativa').value.trim();
+
+  if (just.length < 15) {
+    toast('Justificativa precisa ter no mínimo 15 caracteres', 'error');
+    return;
+  }
+  if (!confirm('Confirma o cancelamento da NFe? Essa ação é irreversível.')) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Cancelando...';
+
+  try {
+    const {ok, data} = await nfeApi('cancelar', {
+      method: 'POST',
+      body: { ref, justificativa: just }
+    });
+    if (ok && data.success) {
+      toast('NFe cancelada com sucesso!', 'success');
+      fecharModal('modalCancelarNfe');
+      carregarNotasFiscais();
+    } else {
+      const msg = data.focus?.mensagem_sefaz || data.focus?.mensagem || data.error || 'Falha';
+      toast('Erro: ' + msg, 'error');
+    }
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Cancelar NFe';
+}
+
+// ----- Carta de Correção -----
+function abrirModalCCe(ref){
+  window._nfeRefCCe = ref;
+  document.getElementById('cceTexto').value = '';
+  document.getElementById('cceContador').textContent = '0 / 1000 (mínimo 15)';
+  fecharModal('modalDetalheNfe');
+  abrirModal('modalCCeNfe');
+}
+
+async function confirmarCCe(){
+  const btn = document.getElementById('btnConfirmarCCe');
+  const ref = window._nfeRefCCe;
+  const correcao = document.getElementById('cceTexto').value.trim();
+
+  if (correcao.length < 15) {
+    toast('Correção precisa ter no mínimo 15 caracteres', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    const {ok, data} = await nfeApi('carta-correcao', {
+      method: 'POST',
+      body: { ref, correcao }
+    });
+    if (ok && data.success) {
+      toast('Carta de Correção enviada!', 'success');
+      fecharModal('modalCCeNfe');
+      carregarNotasFiscais();
+    } else {
+      const msg = data.focus?.mensagem_sefaz || data.focus?.mensagem || data.error || 'Falha';
+      toast('Erro: ' + msg, 'error');
+    }
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Enviar CCe';
+}
 </script>
 </body>
 </html>
