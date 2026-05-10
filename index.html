@@ -1019,21 +1019,125 @@
 
 <!-- Modal de Cliente -->
 <div class="modal-overlay" id="modalCliente">
-  <div class="modal">
+  <div class="modal" style="max-width:760px">
     <div class="modal-header">
       <h3 id="modalClienteTitle">Novo cliente</h3>
       <button class="modal-close" onclick="fecharModalCliente()">×</button>
     </div>
     <input type="hidden" id="cliId">
-    <div class="grid-2">
-      <div style="grid-column:1/-1"><label>Nome *</label><input type="text" id="cliNome" placeholder="Nome do cliente ou empresa"></div>
-      <div><label>CPF / CNPJ</label><input type="text" id="cliDoc"></div>
-      <div><label>Telefone</label><input type="text" id="cliTel"></div>
-      <div style="grid-column:1/-1"><label>Email</label><input type="text" id="cliEmail"></div>
-      <div style="grid-column:1/-1"><label>Endereço</label><input type="text" id="cliEnd"></div>
-      <div><label>Cidade</label><input type="text" id="cliCidade"></div>
+
+    <!-- Tipo de pessoa -->
+    <div style="margin-bottom:14px">
+      <label style="display:block;margin-bottom:6px">Tipo de pessoa</label>
+      <div class="row-flex" style="gap:10px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="cliTipoPessoa" value="F" checked onchange="atualizarTipoPessoa()"> Pessoa Física (CPF)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="cliTipoPessoa" value="J" onchange="atualizarTipoPessoa()"> Pessoa Jurídica (CNPJ)
+        </label>
+      </div>
     </div>
-    <div style="margin-top:10px"><label>Observações</label><textarea id="cliObs"></textarea></div>
+
+    <div class="grid-2">
+      <div style="grid-column:1/-1">
+        <label id="lblCliNome">Nome *</label>
+        <input type="text" id="cliNome" placeholder="Nome do cliente">
+      </div>
+      <div>
+        <label id="lblCliDoc">CPF</label>
+        <input type="text" id="cliDoc" placeholder="000.000.000-00">
+      </div>
+      <div>
+        <label>Telefone</label>
+        <input type="text" id="cliTel" placeholder="(66) 9999-9999">
+      </div>
+      <div style="grid-column:1/-1">
+        <label>Email</label>
+        <input type="text" id="cliEmail" placeholder="cliente@email.com">
+      </div>
+    </div>
+
+    <!-- Bloco de Endereço -->
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+      <h4 style="margin:0 0 10px 0;font-size:14px;color:var(--muted)">📍 Endereço (necessário para emitir NFe)</h4>
+      <div class="grid-2">
+        <div>
+          <label>CEP <span style="color:var(--accent);font-size:11px">(digite e tab pra buscar)</span></label>
+          <input type="text" id="cliCep" maxlength="9" placeholder="00000-000" oninput="onCepInput(this)" onblur="buscarCep()">
+        </div>
+        <div>
+          <label>UF</label>
+          <select id="cliUf">
+            <option value="">--</option>
+            <option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option>
+            <option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option>
+            <option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option>
+            <option value="MA">MA</option><option value="MT" selected>MT</option><option value="MS">MS</option>
+            <option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option>
+            <option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option>
+            <option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option>
+            <option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option>
+            <option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1">
+          <label>Logradouro</label>
+          <input type="text" id="cliLogradouro" placeholder="Rua, Avenida...">
+        </div>
+        <div>
+          <label>Número</label>
+          <input type="text" id="cliNumero" placeholder="123 ou S/N">
+        </div>
+        <div>
+          <label>Complemento</label>
+          <input type="text" id="cliComplemento" placeholder="Apto, Sala...">
+        </div>
+        <div>
+          <label>Bairro</label>
+          <input type="text" id="cliBairro">
+        </div>
+        <div>
+          <label>Cidade</label>
+          <input type="text" id="cliCidade">
+        </div>
+        <div style="grid-column:1/-1">
+          <label>Código IBGE do município <span style="color:var(--muted);font-size:11px">(preenchido automaticamente pelo CEP)</span></label>
+          <input type="text" id="cliCodigoIbge" placeholder="Ex: 5107065" maxlength="7">
+        </div>
+      </div>
+    </div>
+
+    <!-- Bloco Fiscal (só pra PJ ou PF com IE) -->
+    <div id="blocoFiscalCliente" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+      <h4 style="margin:0 0 10px 0;font-size:14px;color:var(--muted)">📄 Dados fiscais</h4>
+      <div class="grid-2">
+        <div>
+          <label>Indicador de IE</label>
+          <select id="cliIndicadorIe">
+            <option value="9" selected>9 - Não contribuinte</option>
+            <option value="1">1 - Contribuinte de ICMS</option>
+            <option value="2">2 - Contribuinte isento</option>
+          </select>
+        </div>
+        <div>
+          <label>Inscrição Estadual</label>
+          <input type="text" id="cliInscEstadual" placeholder="Só preencher se for contribuinte">
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="cliConsumidorFinal" checked>
+            Consumidor final (marcar se o cliente é o destinatário final do produto)
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px">
+      <label>Observações</label>
+      <textarea id="cliObs" rows="2"></textarea>
+    </div>
+
     <div class="row-flex" style="margin-top:20px;justify-content:flex-end">
       <button class="btn secondary" onclick="fecharModalCliente()">Cancelar</button>
       <button class="btn green" onclick="salvarCliente()">💾 Salvar</button>
@@ -2743,9 +2847,29 @@ function abrirModalCliente(id){
   document.getElementById('cliDoc').value = cli ? (cli.documento||'') : '';
   document.getElementById('cliTel').value = cli ? (cli.telefone||'') : '';
   document.getElementById('cliEmail').value = cli ? (cli.email||'') : '';
-  document.getElementById('cliEnd').value = cli ? (cli.endereco||'') : '';
-  document.getElementById('cliCidade').value = cli ? (cli.cidade||'') : '';
   document.getElementById('cliObs').value = cli ? (cli.observacoes||'') : '';
+
+  // Campos de endereço
+  document.getElementById('cliCep').value = cli ? (cli.cep||'') : '';
+  document.getElementById('cliLogradouro').value = cli ? (cli.logradouro||cli.endereco||'') : '';
+  document.getElementById('cliNumero').value = cli ? (cli.numero||'') : '';
+  document.getElementById('cliComplemento').value = cli ? (cli.complemento||'') : '';
+  document.getElementById('cliBairro').value = cli ? (cli.bairro||'') : '';
+  document.getElementById('cliCidade').value = cli ? (cli.cidade||'') : '';
+  document.getElementById('cliUf').value = cli ? (cli.uf||'MT') : 'MT';
+  document.getElementById('cliCodigoIbge').value = cli ? (cli.codigo_ibge_municipio||'') : '';
+
+  // Campos fiscais
+  document.getElementById('cliIndicadorIe').value = cli ? String(cli.indicador_ie||9) : '9';
+  document.getElementById('cliInscEstadual').value = cli ? (cli.inscricao_estadual||'') : '';
+  document.getElementById('cliConsumidorFinal').checked = cli ? (cli.consumidor_final !== false) : true;
+
+  // Tipo de pessoa (se documento tem 14 dígitos = PJ, senão PF)
+  const docDigits = String((cli && cli.documento) || '').replace(/\D/g, '');
+  const tipoP = (cli && cli.tipo_pessoa) || (docDigits.length === 14 ? 'J' : 'F');
+  document.querySelector(`input[name="cliTipoPessoa"][value="${tipoP}"]`).checked = true;
+  atualizarTipoPessoa();
+
   document.getElementById('modalCliente').classList.add('show');
 }
 
@@ -2753,16 +2877,79 @@ function fecharModalCliente(){
   document.getElementById('modalCliente').classList.remove('show');
 }
 
+// Atualiza labels conforme tipo (PF/PJ)
+function atualizarTipoPessoa(){
+  const tipo = document.querySelector('input[name="cliTipoPessoa"]:checked')?.value || 'F';
+  document.getElementById('lblCliNome').textContent = tipo === 'J' ? 'Razão Social *' : 'Nome *';
+  document.getElementById('lblCliDoc').textContent = tipo === 'J' ? 'CNPJ' : 'CPF';
+  document.getElementById('cliDoc').placeholder = tipo === 'J' ? '00.000.000/0000-00' : '000.000.000-00';
+}
+
+// Máscara simples de CEP (não bloqueia, só formata)
+function onCepInput(input){
+  let v = input.value.replace(/\D/g, '').slice(0, 8);
+  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5);
+  input.value = v;
+}
+
+// Busca CEP no ViaCEP e preenche campos automaticamente
+async function buscarCep(){
+  const inp = document.getElementById('cliCep');
+  const cep = String(inp.value || '').replace(/\D/g, '');
+  if (cep.length !== 8) return; // só busca se tiver 8 dígitos
+  inp.disabled = true;
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await res.json();
+    if (data.erro) {
+      toast('CEP não encontrado', 'error');
+      return;
+    }
+    // Preenche só se o campo estiver vazio (não sobrescreve o que o usuário digitou)
+    const setIfEmpty = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && !el.value && val) el.value = val;
+    };
+    setIfEmpty('cliLogradouro', data.logradouro);
+    setIfEmpty('cliBairro', data.bairro);
+    setIfEmpty('cliCidade', data.localidade);
+    if (data.uf) document.getElementById('cliUf').value = data.uf;
+    if (data.ibge) document.getElementById('cliCodigoIbge').value = data.ibge;
+    toast('Endereço preenchido!', 'success');
+  } catch(e) {
+    toast('Erro ao buscar CEP: ' + e.message, 'error');
+  }
+  inp.disabled = false;
+}
+
 async function salvarCliente(){
   const id = document.getElementById('cliId').value;
+  const tipo = document.querySelector('input[name="cliTipoPessoa"]:checked')?.value || 'F';
+  const cepLimpo = document.getElementById('cliCep').value.replace(/\D/g, '');
+  const docLimpo = document.getElementById('cliDoc').value.replace(/\D/g, '');
+
   const dados = {
     nome: document.getElementById('cliNome').value.trim(),
-    documento: document.getElementById('cliDoc').value.trim() || null,
+    documento: docLimpo || null,
     telefone: document.getElementById('cliTel').value.trim() || null,
     email: document.getElementById('cliEmail').value.trim() || null,
-    endereco: document.getElementById('cliEnd').value.trim() || null,
+    observacoes: document.getElementById('cliObs').value.trim() || null,
+    // Endereço
+    cep: cepLimpo || null,
+    logradouro: document.getElementById('cliLogradouro').value.trim() || null,
+    numero: document.getElementById('cliNumero').value.trim() || null,
+    complemento: document.getElementById('cliComplemento').value.trim() || null,
+    bairro: document.getElementById('cliBairro').value.trim() || null,
     cidade: document.getElementById('cliCidade').value.trim() || null,
-    observacoes: document.getElementById('cliObs').value.trim() || null
+    uf: document.getElementById('cliUf').value || null,
+    codigo_ibge_municipio: document.getElementById('cliCodigoIbge').value.trim() || null,
+    // Mantém endereço antigo sincronizado (compatibilidade)
+    endereco: document.getElementById('cliLogradouro').value.trim() || null,
+    // Fiscal
+    tipo_pessoa: tipo,
+    indicador_ie: Number(document.getElementById('cliIndicadorIe').value) || 9,
+    inscricao_estadual: document.getElementById('cliInscEstadual').value.trim() || null,
+    consumidor_final: document.getElementById('cliConsumidorFinal').checked
   };
   if(!dados.nome){ toast('Nome é obrigatório', 'error'); return; }
 
