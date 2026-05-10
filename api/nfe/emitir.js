@@ -1,5 +1,6 @@
 // api/nfe/emitir.js
 // Emite uma NFe a partir de um orçamento
+// v2 — adapta-se à estrutura real do banco (orcamento_itens não tem campos fiscais)
 
 import { supabaseAdmin } from '../../lib/supabaseAdmin.js';
 import { focusNFe } from '../../lib/focusNFe.js';
@@ -75,6 +76,27 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Orçamento sem itens', detalhe: errItens });
     }
 
+    // 4b. Enriquecer itens com dados fiscais dos produtos cadastrados (quando produto_id existir)
+    const idsProdutos = itens
+      .map(i => i.produto_id)
+      .filter(id => id != null);
+
+    let produtosMap = {};
+    if (idsProdutos.length > 0) {
+      const { data: produtos } = await supabaseAdmin
+        .from('produtos')
+        .select('*')
+        .in('id', idsProdutos);
+      if (produtos) {
+        produtosMap = produtos.reduce((acc, p) => { acc[p.id] = p; return acc; }, {});
+      }
+    }
+
+    const itensEnriquecidos = itens.map(item => ({
+      ...item,
+      produto_data: item.produto_id ? produtosMap[item.produto_id] || null : null
+    }));
+
     // 5. Determinar próximo número
     const ambiente = focusNFe.ambiente;
     const campoNumero = ambiente === 'producao' ? 'ultimo_numero_producao' : 'ultimo_numero_homologacao';
@@ -88,7 +110,7 @@ export default async function handler(req, res) {
       config,
       cliente,
       orcamento,
-      itens,
+      itens: itensEnriquecidos,
       numero: proximoNumero,
       naturezaOperacao: natureza_operacao || 'Venda de mercadoria'
     });
