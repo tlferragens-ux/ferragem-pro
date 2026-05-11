@@ -1,6 +1,6 @@
 // api/nfe/emitir.js
 // Emite uma NFe a partir de um orçamento
-// v2 — adapta-se à estrutura real do banco (orcamento_itens não tem campos fiscais)
+// v3 — corrige valor_total salvo no banco (usa orcamento.valor_total com desconto)
 
 import { supabaseAdmin } from '../../lib/supabaseAdmin.js';
 import { focusNFe } from '../../lib/focusNFe.js';
@@ -116,7 +116,9 @@ export default async function handler(req, res) {
     });
 
     // 8. Inserir registro inicial em notas_fiscais (status: processando)
-    const valorTotalCalc = itens.reduce((acc, i) => acc + Number(i.preco_total || 0), 0);
+    // ⚠️ Usa orcamento.valor_total (com desconto aplicado) — NÃO somar itens (que dá subtotal sem desconto)
+    const subtotalItens = itens.reduce((acc, i) => acc + Number(i.preco_total || 0), 0);
+    const valorTotalReal = Number(orcamento.valor_total || subtotalItens);
 
     const { data: notaInicial, error: errNota } = await supabaseAdmin
       .from('notas_fiscais')
@@ -130,7 +132,7 @@ export default async function handler(req, res) {
         cliente_id: cliente.id,
         cliente_nome: cliente.nome,
         cliente_documento: cliente.documento,
-        valor_total: valorTotalCalc,
+        valor_total: valorTotalReal,
         payload_envio: payload
       })
       .select()
