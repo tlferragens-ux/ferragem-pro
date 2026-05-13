@@ -1453,6 +1453,8 @@ let saveTimeout = null;
 // ====================================================
 const fmt = v => 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtData = d => new Date(d).toLocaleDateString('pt-BR') + ' ' + new Date(d).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+// round2: arredonda corretamente pra 2 casas decimais (evita "129,100" e bugs de soma)
+const round2 = v => Math.round((Number(v)||0) * 100) / 100;
 
 function toast(msg, tipo='success'){
   const t = document.getElementById('toast');
@@ -1932,16 +1934,17 @@ function calcularViga(){
     estribo_altura_cm: eA,
     estribo_bitola: eB,
     estribo_espacamento_cm: eE,
-    custo_unitario: custoUnit,
-    preco_unitario: precoUnit,
-    preco_total: precoTotal,
+    custo_unitario: round2(custoUnit),
+    preco_unitario: round2(precoUnit),
+    preco_total: round2(precoTotal),
     qtd_estribos: qtdEstribosReais
   };
 
   document.getElementById('btnAddItem').disabled = false;
 
-  const reais = Math.floor(precoTotal);
-  const cents = Math.round((precoTotal-reais)*100).toString().padStart(2,'0');
+  const [_r1945, _c1945] = round2(precoTotal).toFixed(2).split('.');
+  const reais = parseInt(_r1945, 10);
+  const cents = _c1945;
 
   // Nome do produto baseado no tipo selecionado
   const nomeUnit =
@@ -2027,18 +2030,20 @@ function calcularSapata(){
     sapata_qtd_pecas: qtdFerros,   // quantidade de ferros por sapata
     sapata_bitola: bitola,
     quantidade: qtdSapatas,         // quantidade de sapatas iguais (multiplicador)
-    custo_unitario: custoUnit,
-    preco_unitario: precoUnit,
-    preco_total: comNota
+    custo_unitario: round2(custoUnit),
+    preco_unitario: round2(precoUnit),
+    preco_total: round2(comNota)
   };
 
   document.getElementById('btnAddItem').disabled = false;
 
-  const reais = Math.floor(comNota);
-  const cents = Math.round((comNota-reais)*100).toString().padStart(2,'0');
+  const [_r2040, _c2040] = round2(comNota).toFixed(2).split('.');
+  const reais = parseInt(_r2040, 10);
+  const cents = _c2040;
 
-  const precoPorUnidReais = Math.floor(precoUnit);
-  const precoPorUnidCents = Math.round((precoUnit-precoPorUnidReais)*100).toString().padStart(2,'0');
+  const [_r2043, _c2043] = round2(precoUnit).toFixed(2).split('.');
+  const precoPorUnidReais = parseInt(_r2043, 10);
+  const precoPorUnidCents = _c2043;
 
   document.getElementById('resultado').innerHTML = `
     <div class="result">
@@ -2205,16 +2210,17 @@ function calcularBloco(){
     direcoes,
     adicionais,
     detalhes,
-    custo_total: custoTotal,
-    preco_total: comNota,
-    preco_unitario: precoUnit,
-    custo_unitario: custoTotal / qtdBlocos
+    custo_total: round2(custoTotal),
+    preco_total: round2(comNota),
+    preco_unitario: round2(precoUnit),
+    custo_unitario: round2(custoTotal / qtdBlocos)
   };
 
   document.getElementById('btnAddItem').disabled = false;
 
-  const reais = Math.floor(comNota);
-  const cents = Math.round((comNota - reais) * 100).toString().padStart(2,'0');
+  const [_r2221, _c2221] = round2(comNota).toFixed(2).split('.');
+  const reais = parseInt(_r2221, 10);
+  const cents = _c2221;
 
   // Monta breakdown bonito
   const linhasDet = detalhes.map(d=>{
@@ -2415,15 +2421,16 @@ function calcularProduto(){
     produto_nome: produto.nome,
     produto_unidade: produto.unidade || 'peça',
     quantidade: qtd,
-    custo_unitario: valorUnit,  // aqui não tem distinção de custo vs preço — é venda direta
-    preco_unitario: valorUnit,
-    preco_total: total
+    custo_unitario: round2(valorUnit),  // aqui não tem distinção de custo vs preço — é venda direta
+    preco_unitario: round2(valorUnit),
+    preco_total: round2(total)
   };
 
   document.getElementById('btnAddItem').disabled = false;
 
-  const reais = Math.floor(total);
-  const cents = Math.round((total-reais)*100).toString().padStart(2,'0');
+  const [_r2431, _c2431] = round2(total).toFixed(2).split('.');
+  const reais = parseInt(_r2431, 10);
+  const cents = _c2431;
 
   document.getElementById('resultado').innerHTML = `
     <div class="result">
@@ -2612,10 +2619,8 @@ function renderItensOrcamento(){
     `;
   }).join('');
 
-  const reais = Math.floor(total);
-  const cents = Math.round((total-reais)*100).toString().padStart(2,'0');
-  // Guarda subtotal e aplica desconto
-  window._subtotalAtual = total;
+  // Guarda subtotal arredondado e aplica desconto
+  window._subtotalAtual = round2(total);
   atualizarTotalComDesconto();
 }
 
@@ -2632,11 +2637,12 @@ function atualizarTotalComDesconto(){
   const subtotal = window._subtotalAtual || 0;
   const descontoInput = document.getElementById('orcDesconto');
   const desconto = parseFloat(descontoInput ? descontoInput.value : 0) || 0;
-  const total = Math.max(0, subtotal - desconto);
+  const total = round2(Math.max(0, subtotal - desconto));
 
-  const reais = Math.floor(total);
-  const cents = Math.round((total-reais)*100).toString().padStart(2,'0');
-  document.getElementById('totalOrc').innerHTML = `R$ ${reais.toLocaleString('pt-BR')}<span class="cents">,${cents}</span>`;
+  // Usa toFixed(2) e splita para evitar bug de transbordo (centavos=100 vira +1 real)
+  const [reaisStr, centsStr] = total.toFixed(2).split('.');
+  const reais = parseInt(reaisStr, 10);
+  document.getElementById('totalOrc').innerHTML = `R$ ${reais.toLocaleString('pt-BR')}<span class="cents">,${centsStr}</span>`;
 
   // Mostra/esconde linha de subtotal
   const linha = document.getElementById('orcSubtotalLinha');
@@ -2714,9 +2720,9 @@ async function salvarOrcamento(){
 
   const clienteId = document.getElementById('orcCliente').value || null;
   const cliente = clientes.find(c=>c.id==clienteId);
-  const subtotal = itensOrcamento.reduce((s,it)=>s+parseFloat(it.preco_total),0);
-  const desconto = parseFloat(document.getElementById('orcDesconto').value) || 0;
-  const total = Math.max(0, subtotal - desconto);
+  const subtotal = round2(itensOrcamento.reduce((s,it)=>s+parseFloat(it.preco_total),0));
+  const desconto = round2(parseFloat(document.getElementById('orcDesconto').value) || 0);
+  const total = round2(Math.max(0, subtotal - desconto));
   const obs = document.getElementById('orcObs').value;
   const entrega = document.getElementById('orcEntrega').value;
   const protegido = document.getElementById('orcProtegido').checked;
