@@ -90,6 +90,32 @@
   .grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px}
   @media(max-width:640px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
 
+  /* === SIDEBAR LAYOUT === */
+  .app-layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+  .sidebar{background:var(--tl-dark);border-right:1px solid var(--line);padding:20px 12px;display:flex;flex-direction:column;gap:16px;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:100}
+  .sidebar .brand{flex-direction:column;text-align:center;padding:8px 4px 16px;border-bottom:1px solid rgba(255,255,255,.08);gap:8px;display:flex;align-items:center}
+  .sidebar .brand img{width:64px;height:64px}
+  .sidebar .brand h1{font-size:20px;color:#fff;letter-spacing:.5px;margin:0}
+  .sidebar .brand .sub{font-size:11px;color:rgba(255,255,255,.6)}
+  .sidebar nav{display:flex;flex-direction:column;gap:4px;background:transparent;border:0;padding:0;overflow:visible;border-radius:0}
+  .sidebar nav button{width:100%;text-align:left;padding:12px 14px;font-size:14px;color:rgba(255,255,255,.75);border-radius:8px;display:flex;align-items:center;gap:10px;justify-content:flex-start}
+  .sidebar nav button:hover:not(.active){background:rgba(255,255,255,.06);color:#fff}
+  .sidebar nav button.active{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(245,130,32,.3)}
+  .main-content{padding:24px 32px;min-width:0;overflow-x:hidden;max-width:1100px}
+  .main-content header{border:0;padding:0 0 20px;margin-bottom:20px}
+  .main-content header .brand{display:none}
+  .menu-toggle{display:none;background:var(--panel);border:1px solid var(--line);color:var(--text);width:44px;height:44px;border-radius:10px;font-size:22px;cursor:pointer;align-items:center;justify-content:center}
+  .sidebar-overlay{display:none}
+  @media(max-width:768px){
+    .app-layout{grid-template-columns:1fr}
+    .sidebar{position:fixed;left:-260px;top:0;width:240px;height:100vh;transition:left .3s;box-shadow:4px 0 24px rgba(0,0,0,.5);z-index:1000}
+    .sidebar.open{left:0}
+    .menu-toggle{display:flex}
+    .main-content{padding:16px}
+    .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999}
+    .sidebar.open ~ .sidebar-overlay{display:block}
+  }
+
   .ferro-row{
     display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;
     background:var(--panel-2);padding:14px;border-radius:12px;margin-bottom:10px;
@@ -357,31 +383,38 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app-layout">
 
-    <header>
+  <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <img src="/assets/logo-tl.jpeg" alt="TL Ferragens" class="logo-tl" style="width:56px;height:56px;border-radius:10px;object-fit:contain;background:#fff;padding:4px;box-shadow:0 4px 12px rgba(0,0,0,0.2)">
+      <img src="/assets/logo-tl.jpeg" alt="TL Ferragens" style="border-radius:12px;object-fit:contain;background:#fff;padding:4px;box-shadow:0 4px 12px rgba(0,0,0,0.2)">
       <div>
         <h1>TL FERRAGENS</h1>
         <div class="sub">Sistema de gestão · v5.0</div>
       </div>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <span class="conn-status" id="connStatus">⏳ Conectando...</span>
-    </div>
-  </header>
+    <nav>
+      <button class="active" data-tab="orcamento">📝 Novo orçamento</button>
+      <button data-tab="historico">📋 Histórico</button>
+      <button data-tab="notas">📄 Notas Fiscais</button>
+      <button data-tab="clientes">👥 Clientes</button>
+      <button data-tab="produtos">📦 Produtos</button>
+      <button data-tab="contas">💰 Contas a Pagar</button>
+      <button data-tab="relatorios">📊 Relatórios</button>
+      <button data-tab="config">⚙️ Preços e %</button>
+    </nav>
+  </aside>
 
-  <nav>
-    <button class="active" data-tab="orcamento">📝 Novo orçamento</button>
-    <button data-tab="historico">📋 Histórico</button>
-    <button data-tab="notas">📄 Notas Fiscais</button>
-    <button data-tab="clientes">👥 Clientes</button>
-    <button data-tab="produtos">📦 Produtos</button>
-    <button data-tab="contas">💰 Contas a Pagar</button>
-    <button data-tab="relatorios">📊 Relatórios</button>
-    <button data-tab="config">⚙️ Preços e %</button>
-  </nav>
+  <div class="sidebar-overlay" onclick="document.getElementById('sidebar').classList.remove('open')"></div>
+
+  <div class="main-content">
+
+    <header>
+      <button class="menu-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
+        <span class="conn-status" id="connStatus">⏳ Conectando...</span>
+      </div>
+    </header>
 
   <!-- Banner de alertas de boletos -->
   <div id="alertaBoletos" class="alerta-boletos hidden"></div>
@@ -1016,7 +1049,8 @@
     </div>
   </section>
 
-</div>
+  </div><!-- /.main-content -->
+</div><!-- /.app-layout -->
 
 <!-- Modal de Cliente -->
 <div class="modal-overlay" id="modalCliente">
