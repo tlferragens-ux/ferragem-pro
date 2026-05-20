@@ -4787,9 +4787,22 @@ async function gerarPDF(modo){
   const msgValidade = doc.splitTextToSize(textoAviso, 100);
   doc.text(msgValidade, 14, y+9);
 
-  // ===== Caixa do TOTAL (direita) =====
-  doc.setFillColor(...cor1);
-  doc.rect(120, y, 76, 12, 'F');
+  // ===== Subtotal + Desconto (acima do TOTAL, quando houver desconto) =====
+    const descontoOrc = parseFloat(orc.desconto) || 0;
+    if(descontoOrc > 0){
+      const subtotalOrc = parseFloat(orc.valor_total) + descontoOrc;
+      doc.setTextColor(120,120,120);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8);
+      doc.text('Subtotal: ' + fmt(subtotalOrc), 196, y-2, {align:'right'});
+      doc.setTextColor(...cor1);
+      doc.text('Desconto: -' + fmt(descontoOrc), 196, y+2, {align:'right'});
+      y += 8;
+    }
+
+    // ===== Caixa do TOTAL (direita) =====
+    doc.setFillColor(...cor1);
+    doc.rect(120, y, 76, 12, 'F');
   doc.setTextColor(255,255,255);
   doc.setFont('helvetica','bold');
   doc.setFontSize(11);
