@@ -5449,7 +5449,14 @@ async function gerarContrato(modo){
     }
   }catch(e){}
   // Pré-carrega lembretes de pós-venda
-  await carregarLembretesPosVenda();
+  await carregarLembretesPosVenda();// Pré-carrega cobranças pra mostrar banner de avisos
+  try{
+    const {data} = await sb.from('contas_receber').select('*').eq('status','pendente').order('data_vencimento');
+    if(data){
+      contasReceber = data;
+      mostrarAlertasReceber();
+    }
+  }catch(e){}
 })();
 // ====================================================
 // CONTAS A RECEBER (COBRANÇAS DE CLIENTES)
