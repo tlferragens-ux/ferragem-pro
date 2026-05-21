@@ -400,6 +400,7 @@
       <button data-tab="clientes">👥 Clientes</button>
       <button data-tab="produtos">📦 Produtos</button>
       <button data-tab="contas">💰 Contas a Pagar</button>
+      <button data-tab="receber">💵 Contas a Receber</button>
       <button data-tab="relatorios">📊 Relatórios</button>
       <button data-tab="config">⚙️ Preços e %</button>
     </nav>
@@ -918,7 +919,53 @@
       </div>
     </div>
   </section>
+<!-- ============== TAB CONTAS A RECEBER ============== -->
+  <section id="tab-receber" class="hidden">
+    <!-- Painel resumo -->
+    <div class="contas-resumo">
+      <div class="resumo-card resumo-vencendo" onclick="filtrarReceber('proximas')">
+        <div class="resumo-label">Próximos 7 dias</div>
+        <div class="resumo-valor" id="resReceberProximas">R$ 0</div>
+        <div class="resumo-sub" id="resReceberProximasQtd">0 cobranças</div>
+      </div>
+      <div class="resumo-card resumo-mes" onclick="filtrarReceber('mes')">
+        <div class="resumo-label">Total do mês (pendente)</div>
+        <div class="resumo-valor" id="resReceberMes">R$ 0</div>
+        <div class="resumo-sub" id="resReceberMesQtd">0 cobranças</div>
+      </div>
+      <div class="resumo-card resumo-vencidas" onclick="filtrarReceber('vencidas')">
+        <div class="resumo-label">Atrasadas</div>
+        <div class="resumo-valor" id="resReceberVencidas">R$ 0</div>
+        <div class="resumo-sub" id="resReceberVencidasQtd">0 cobranças</div>
+      </div>
+      <div class="resumo-card resumo-pagas" onclick="filtrarReceber('pagas')">
+        <div class="resumo-label">Recebidas no mês</div>
+        <div class="resumo-valor" id="resReceberPagas">R$ 0</div>
+        <div class="resumo-sub" id="resReceberPagasQtd">0 cobranças</div>
+      </div>
+    </div>
 
+    <div class="card">
+      <div class="row-flex" style="justify-content:space-between;margin-bottom:18px">
+        <div>
+          <h2 style="margin:0">Contas a receber</h2>
+          <div class="desc" style="margin:4px 0 0">Cobranças dos clientes (boletos, PIX, parcelas)</div>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="contas-filtros">
+        <button class="filtro-btn-receber active" data-filtro="todas" onclick="filtrarReceber('todas')">Todas</button>
+        <button class="filtro-btn-receber" data-filtro="pendentes" onclick="filtrarReceber('pendentes')">Pendentes</button>
+        <button class="filtro-btn-receber" data-filtro="vencidas" onclick="filtrarReceber('vencidas')">Atrasadas</button>
+        <button class="filtro-btn-receber" data-filtro="pagas" onclick="filtrarReceber('pagas')">Pagas</button>
+      </div>
+
+      <div id="receberLista">
+        <div class="loader"></div>
+      </div>
+    </div>
+  </section>
   <!-- ============== TAB RELATÓRIOS ============== -->
   <section id="tab-relatorios" class="hidden">
     <div class="card">
@@ -1360,7 +1407,63 @@
     </div>
   </div>
 </div>
+<!-- Modal de Cobrança (ao marcar como Vendido) -->
+<div class="modal-overlay" id="modalCobranca">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3>💵 Registrar cobrança</h3>
+      <button class="modal-close" onclick="fecharModalCobranca()">×</button>
+    </div>
+    <div style="background:rgba(46,204,113,0.1);border-left:3px solid var(--green);padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:16px">
+      Venda concluída! Registre como o cliente vai pagar pra você acompanhar o recebimento.
+    </div>
+    <input type="hidden" id="cobOrcId">
+    <input type="hidden" id="cobOrcNumero">
+    <input type="hidden" id="cobClienteId">
+    <input type="hidden" id="cobClienteNome">
+    <input type="hidden" id="cobClienteTel">
 
+    <div style="margin-bottom:12px">
+      <label>Forma de pagamento *</label>
+      <select id="cobForma" onchange="aoMudarFormaCobranca()">
+        <option value="boleto">Boleto</option>
+        <option value="pix">PIX</option>
+        <option value="cartao">Cartão</option>
+        <option value="dinheiro">Dinheiro</option>
+        <option value="cheque">Cheque</option>
+        <option value="transferencia">Transferência</option>
+      </select>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Valor (R$) *</label>
+        <input type="number" id="cobValor" step="0.01" min="0" placeholder="0,00">
+      </div>
+      <div>
+        <label>Data de vencimento *</label>
+        <input type="date" id="cobVencimento">
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="cobJaPago" style="width:18px;height:18px;cursor:pointer">
+        <span style="font-weight:700;color:var(--green)">Já foi pago (recebimento à vista)</span>
+      </label>
+    </div>
+
+    <div style="margin-top:12px">
+      <label>Observações <span class="opcional">(opcional)</span></label>
+      <textarea id="cobObs" placeholder="Ex: cliente vai pagar dia 15, combinou metade agora..."></textarea>
+    </div>
+
+    <div class="row-flex" style="margin-top:20px;justify-content:flex-end">
+      <button class="btn secondary" onclick="fecharModalCobranca()">Pular (sem cobrança)</button>
+      <button class="btn green" onclick="salvarCobranca()">💾 Registrar cobrança</button>
+    </div>
+  </div>
+</div>
 <!-- Modal de detalhes do orçamento -->
 <div class="modal-overlay" id="modalOrcamento">
   <div class="modal" style="max-width:700px">
@@ -1513,7 +1616,7 @@ document.querySelectorAll('nav button').forEach(b=>{
   b.onclick = ()=>{
     document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
-    ['orcamento','historico','notas','clientes','produtos','contas','relatorios','config'].forEach(t=>{
+    ['orcamento','historico','notas','clientes','produtos','contas','receber','relatorios','config'].forEach(t=>{
       document.getElementById('tab-'+t).classList.toggle('hidden', b.dataset.tab!==t);
     });
     if(b.dataset.tab==='historico') carregarHistorico();
@@ -1521,6 +1624,7 @@ document.querySelectorAll('nav button').forEach(b=>{
     if(b.dataset.tab==='clientes')  carregarClientes(true);
     if(b.dataset.tab==='produtos')  carregarProdutos(true);
     if(b.dataset.tab==='contas')    carregarContas();
+    if(b.dataset.tab==='receber')   carregarContasReceber();
     if(b.dataset.tab==='relatorios') carregarRelatorios();
   };
 });
@@ -3257,8 +3361,10 @@ async function atualizarStatus(id, status){
     toast('Status atualizado para: ' + nomeStatus);
 
     // Se a venda foi concluída AGORA (não era vendido antes), cria lembretes de pós-venda
-    if(status === 'vendido' && !eraVendido && orcAntigo){
+   if(status === 'vendido' && !eraVendido && orcAntigo){
       await criarLembretesPosVenda(orcAntigo);
+      // Abre modal de cobrança pra registrar como o cliente vai pagar
+      abrirModalCobranca(orcAntigo);
     }
 
     carregarHistorico();
@@ -5345,7 +5451,378 @@ async function gerarContrato(modo){
   // Pré-carrega lembretes de pós-venda
   await carregarLembretesPosVenda();
 })();
+// ====================================================
+// CONTAS A RECEBER (COBRANÇAS DE CLIENTES)
+// ====================================================
+let contasReceber = [];
+let filtroReceberAtual = 'todas';
 
+// Abre o modal de cobrança quando uma venda é concluída
+function abrirModalCobranca(orc){
+  const cliente = clientes.find(c => c.id == orc.cliente_id);
+  document.getElementById('cobOrcId').value = orc.id;
+  document.getElementById('cobOrcNumero').value = orc.numero;
+  document.getElementById('cobClienteId').value = orc.cliente_id || '';
+  document.getElementById('cobClienteNome').value = orc.cliente_nome || (cliente ? cliente.nome : 'Cliente avulso');
+  document.getElementById('cobClienteTel').value = cliente ? (cliente.telefone || '') : '';
+  document.getElementById('cobForma').value = 'boleto';
+  document.getElementById('cobValor').value = parseFloat(orc.valor_total || 0).toFixed(2);
+  document.getElementById('cobJaPago').checked = false;
+  document.getElementById('cobObs').value = '';
+
+  // Data de vencimento padrão: hoje + 30 dias
+  const venc = new Date();
+  venc.setDate(venc.getDate() + 30);
+  document.getElementById('cobVencimento').value = venc.toISOString().slice(0,10);
+
+  document.getElementById('modalCobranca').classList.add('show');
+}
+
+function fecharModalCobranca(){
+  document.getElementById('modalCobranca').classList.remove('show');
+}
+
+// Quando muda forma de pagamento: dinheiro/PIX/cartão geralmente é à vista
+function aoMudarFormaCobranca(){
+  const forma = document.getElementById('cobForma').value;
+  const jaPago = document.getElementById('cobJaPago');
+  if(forma === 'dinheiro' || forma === 'pix' || forma === 'cartao'){
+    // Sugere "já pago" e vencimento hoje
+    jaPago.checked = true;
+    document.getElementById('cobVencimento').value = new Date().toISOString().slice(0,10);
+  }else{
+    // Boleto/cheque/transferência: 30 dias e pendente
+    jaPago.checked = false;
+    const venc = new Date();
+    venc.setDate(venc.getDate() + 30);
+    document.getElementById('cobVencimento').value = venc.toISOString().slice(0,10);
+  }
+}
+
+async function salvarCobranca(){
+  const orcId = document.getElementById('cobOrcId').value;
+  const orcNumero = document.getElementById('cobOrcNumero').value;
+  const clienteId = document.getElementById('cobClienteId').value || null;
+  const clienteNome = document.getElementById('cobClienteNome').value;
+  const clienteTel = document.getElementById('cobClienteTel').value || null;
+  const forma = document.getElementById('cobForma').value;
+  const valor = parseFloat(document.getElementById('cobValor').value);
+  const vencimento = document.getElementById('cobVencimento').value;
+  const jaPago = document.getElementById('cobJaPago').checked;
+  const obs = document.getElementById('cobObs').value.trim() || null;
+
+  if(!valor || valor <= 0){ toast('Valor inválido', 'error'); return; }
+  if(!vencimento){ toast('Informe a data de vencimento', 'error'); return; }
+
+  try{
+    const dados = {
+      orcamento_id: parseInt(orcId),
+      numero_orcamento: parseInt(orcNumero) || null,
+      cliente_id: clienteId ? parseInt(clienteId) : null,
+      cliente_nome: clienteNome,
+      cliente_telefone: clienteTel,
+      valor: valor,
+      forma_pagamento: forma,
+      data_vencimento: vencimento,
+      status: jaPago ? 'pago' : 'pendente',
+      data_pagamento: jaPago ? new Date().toISOString().slice(0,10) : null,
+      observacoes: obs,
+      atualizado_em: new Date().toISOString()
+    };
+
+    // Remove cobrança antiga deste orçamento (caso já exista)
+    await sb.from('contas_receber').delete().eq('orcamento_id', parseInt(orcId));
+
+    const {error} = await sb.from('contas_receber').insert(dados);
+    if(error) throw error;
+
+    toast(jaPago ? 'Recebimento registrado ✓' : 'Cobrança registrada ✓');
+    fecharModalCobranca();
+  }catch(e){
+    toast('Erro: ' + e.message, 'error');
+  }
+}
+
+// --- Carrega contas a receber ---
+async function carregarContasReceber(){
+  try{
+    const {data, error} = await sb.from('contas_receber').select('*').order('data_vencimento');
+    if(error) throw error;
+    contasReceber = data || [];
+    atualizarResumoReceber();
+    renderContasReceber();
+  }catch(e){
+    document.getElementById('receberLista').innerHTML =
+      `<div class="empty"><h3>Erro ao carregar</h3><p>${e.message}</p></div>`;
+  }
+}
+
+// --- Resumo financeiro ---
+function atualizarResumoReceber(){
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const em7dias = new Date(hoje); em7dias.setDate(em7dias.getDate()+7);
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0, 23,59,59);
+
+  let totalProximas=0, qtdProximas=0;
+  let totalMes=0, qtdMes=0;
+  let totalVencidas=0, qtdVencidas=0;
+  let totalPagas=0, qtdPagas=0;
+
+  contasReceber.forEach(c=>{
+    const venc = new Date(c.data_vencimento + 'T00:00:00');
+    const valor = parseFloat(c.valor);
+
+    if(c.status === 'pago'){
+      const pag = c.data_pagamento ? new Date(c.data_pagamento + 'T00:00:00') : venc;
+      if(pag >= inicioMes && pag <= fimMes){ totalPagas += valor; qtdPagas++; }
+      return;
+    }
+    if(c.status !== 'pendente') return;
+
+    if(venc < hoje){ totalVencidas += valor; qtdVencidas++; }
+    else if(venc <= em7dias){ totalProximas += valor; qtdProximas++; }
+
+    if(venc >= inicioMes && venc <= fimMes){ totalMes += valor; qtdMes++; }
+  });
+
+  document.getElementById('resReceberProximas').textContent = fmt(totalProximas);
+  document.getElementById('resReceberProximasQtd').textContent = qtdProximas + (qtdProximas===1?' cobrança':' cobranças');
+  document.getElementById('resReceberMes').textContent = fmt(totalMes);
+  document.getElementById('resReceberMesQtd').textContent = qtdMes + (qtdMes===1?' cobrança':' cobranças');
+  document.getElementById('resReceberVencidas').textContent = fmt(totalVencidas);
+  document.getElementById('resReceberVencidasQtd').textContent = qtdVencidas + (qtdVencidas===1?' cobrança':' cobranças');
+  document.getElementById('resReceberPagas').textContent = fmt(totalPagas);
+  document.getElementById('resReceberPagasQtd').textContent = qtdPagas + (qtdPagas===1?' cobrança':' cobranças');
+}
+
+// --- Filtros ---
+function filtrarReceber(filtro){
+  filtroReceberAtual = (filtro==='proximas'||filtro==='mes') ? 'pendentes' : filtro;
+  document.querySelectorAll('.filtro-btn-receber').forEach(b=>{
+    b.classList.toggle('active', b.dataset.filtro === filtroReceberAtual);
+  });
+  // Garante que a aba está visível
+  if(document.getElementById('tab-receber').classList.contains('hidden')){
+    document.querySelector('nav button[data-tab="receber"]').click();
+  }else{
+    renderContasReceber();
+  }
+}
+
+function nomeFormaPagamento(forma){
+  const nomes = {
+    boleto:'Boleto', pix:'PIX', cartao:'Cartão',
+    dinheiro:'Dinheiro', cheque:'Cheque', transferencia:'Transferência'
+  };
+  return nomes[forma] || forma;
+}
+
+function renderContasReceber(){
+  const cont = document.getElementById('receberLista');
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+
+  let lista = [...contasReceber];
+
+  if(filtroReceberAtual === 'pendentes'){
+    lista = lista.filter(c=>c.status === 'pendente');
+  }else if(filtroReceberAtual === 'pagas'){
+    lista = lista.filter(c=>c.status === 'pago');
+  }else if(filtroReceberAtual === 'vencidas'){
+    lista = lista.filter(c=>{
+      if(c.status !== 'pendente') return false;
+      const v = new Date(c.data_vencimento + 'T00:00:00');
+      return v < hoje;
+    });
+  }
+
+  if(lista.length === 0){
+    cont.innerHTML = `<div class="empty"><h3>Nenhuma cobrança encontrada</h3><p>Cobranças aparecem aqui quando você marca um orçamento como Vendido.</p></div>`;
+    return;
+  }
+
+  cont.innerHTML = lista.map(c=>{
+    const venc = new Date(c.data_vencimento + 'T00:00:00');
+    const diasParaVencer = Math.floor((venc - hoje) / (1000*60*60*24));
+    let classeCard = 'confortavel';
+    let classeData = '';
+    let textoData = '';
+
+    if(c.status === 'pago'){
+      classeCard = 'paga';
+      const pag = c.data_pagamento ? new Date(c.data_pagamento + 'T00:00:00') : null;
+      textoData = pag ? `Recebido em ${formatarData(pag)}` : 'Recebido';
+    }else if(diasParaVencer < 0){
+      classeCard = 'vencida'; classeData = 'vencida';
+      textoData = `⚠ ATRASADO há ${Math.abs(diasParaVencer)} dia${Math.abs(diasParaVencer)>1?'s':''}`;
+    }else if(diasParaVencer === 0){
+      classeCard = 'vencida'; classeData = 'proxima';
+      textoData = '⚠ Vence HOJE';
+    }else if(diasParaVencer <= 7){
+      classeCard = 'proxima'; classeData = 'proxima';
+      textoData = `Vence em ${diasParaVencer} dia${diasParaVencer>1?'s':''} (${formatarData(venc)})`;
+    }else{
+      textoData = `Vence em ${formatarData(venc)}`;
+    }
+
+    // Botão WhatsApp
+    const tel = (c.cliente_telefone || '').replace(/\D/g,'');
+    let btnWhats = '';
+    if(tel && c.status !== 'pago'){
+      const msg = encodeURIComponent(
+        `Olá ${c.cliente_nome}, tudo bem? Aqui é a TL Ferragens. ` +
+        `Passando pra lembrar do pagamento de ${fmt(c.valor)} ` +
+        `(${nomeFormaPagamento(c.forma_pagamento)}) com vencimento em ${formatarData(venc)}, ` +
+        `referente ao pedido nº ${String(c.numero_orcamento||'').padStart(4,'0')}. Qualquer dúvida estou à disposição!`
+      );
+      btnWhats = `<a href="https://wa.me/55${tel}?text=${msg}" target="_blank" class="btn" style="background:#25D366;color:#fff;padding:4px 10px;font-size:11px;text-decoration:none">💬 WhatsApp</a>`;
+    }
+
+    const acoes = c.status === 'pago' ?
+      `<button class="btn ghost" onclick="reverterReceber(${c.id})" style="padding:4px 8px;font-size:11px">Reverter</button>` :
+      `<button class="btn green" onclick="marcarReceberPago(${c.id})" style="padding:4px 10px;font-size:11px">✓ Recebi</button>${btnWhats}`;
+
+    const telTxt = c.cliente_telefone ? ` · 📞 ${c.cliente_telefone}` : '';
+
+    return `
+      <div class="conta-card ${classeCard}">
+        <div class="conta-info">
+          <div class="conta-fornecedor">${c.cliente_nome} <span class="pill" style="font-size:10px">${nomeFormaPagamento(c.forma_pagamento)}</span></div>
+          <div class="conta-descricao">Pedido nº ${String(c.numero_orcamento||'').padStart(4,'0')}${telTxt}</div>
+          <div class="conta-vencimento ${classeData}">${textoData}</div>
+          ${c.observacoes ? `<div class="conta-descricao" style="font-style:italic">${c.observacoes}</div>` : ''}
+        </div>
+        <div class="conta-valor">${fmt(c.valor)}</div>
+        <div class="conta-acoes">
+          ${acoes}
+          <button class="btn danger" onclick="excluirReceber(${c.id})" style="padding:4px 8px;font-size:11px">×</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function marcarReceberPago(id){
+  if(!confirm('Marcar esta cobrança como recebida?')) return;
+  try{
+    const {error} = await sb.from('contas_receber').update({
+      status: 'pago',
+      data_pagamento: new Date().toISOString().slice(0,10),
+      atualizado_em: new Date().toISOString()
+    }).eq('id', id);
+    if(error) throw error;
+    toast('Recebimento registrado ✓');
+    await carregarContasReceber();
+  }catch(e){ toast('Erro: '+e.message, 'error'); }
+}
+
+async function reverterReceber(id){
+  if(!confirm('Reverter? A cobrança volta para pendente.')) return;
+  try{
+    const {error} = await sb.from('contas_receber').update({
+      status: 'pendente',
+      data_pagamento: null,
+      atualizado_em: new Date().toISOString()
+    }).eq('id', id);
+    if(error) throw error;
+    toast('Cobrança revertida.');
+    await carregarContasReceber();
+  }catch(e){ toast('Erro: '+e.message, 'error'); }
+}
+
+async function excluirReceber(id){
+  if(!confirm('Excluir esta cobrança? Não pode ser desfeito.')) return;
+  try{
+    const {error} = await sb.from('contas_receber').delete().eq('id', id);
+    if(error) throw error;
+    toast('Cobrança excluída.');
+    await carregarContasReceber();
+  }catch(e){ toast('Erro: '+e.message, 'error'); }
+}
+
+// --- Banner de aviso de cobranças (1 dia antes E no dia) ---
+function mostrarAlertasReceber(){
+  let banner = document.getElementById('alertaReceber');
+  if(!banner){
+    // Cria o banner dinamicamente se não existir
+    banner = document.createElement('div');
+    banner.id = 'alertaReceber';
+    banner.className = 'alerta-boletos hidden';
+    const posVenda = document.getElementById('alertaPosVenda');
+    if(posVenda && posVenda.parentNode){
+      posVenda.parentNode.insertBefore(banner, posVenda.nextSibling);
+    }
+  }
+
+  const hojeStr = new Date().toISOString().slice(0,10);
+  const fechadoEm = localStorage.getItem('alertaReceberFechado');
+  if(fechadoEm === hojeStr){ banner.classList.add('hidden'); return; }
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const amanha = new Date(hoje); amanha.setDate(amanha.getDate()+1);
+
+  // Vencidas + vence hoje + vence amanhã
+  const alertas = [];
+  contasReceber.forEach(c=>{
+    if(c.status !== 'pendente') return;
+    const venc = new Date(c.data_vencimento + 'T00:00:00');
+    const dias = Math.floor((venc - hoje)/86400000);
+    if(dias < 0){ alertas.push({conta:c, venc, dias, tipo:'atrasado'}); }
+    else if(dias === 0){ alertas.push({conta:c, venc, dias, tipo:'hoje'}); }
+    else if(dias === 1){ alertas.push({conta:c, venc, dias, tipo:'amanha'}); }
+  });
+
+  if(alertas.length === 0){ banner.classList.add('hidden'); return; }
+
+  alertas.sort((a,b)=>a.venc - b.venc);
+  const temAtrasado = alertas.some(a=>a.tipo==='atrasado');
+  banner.className = 'alerta-boletos' + (temAtrasado ? '' : ' warning');
+
+  const total = alertas.reduce((s,a)=>s+parseFloat(a.conta.valor),0);
+  let html = `<button class="alerta-fechar" onclick="fecharAlertaReceber()" title="Fechar por hoje">×</button>`;
+  html += `<div class="alerta-titulo">💵 ${alertas.length} cobrança${alertas.length>1?'s':''} pra receber · Total ${fmt(total)}</div>`;
+  html += `<div class="alerta-lista">`;
+  alertas.forEach(a=>{
+    const c = a.conta;
+    const tel = (c.cliente_telefone||'').replace(/\D/g,'');
+    let txtDia = a.tipo==='atrasado' ? `Atrasado há ${Math.abs(a.dias)} dia${Math.abs(a.dias)>1?'s':''}` :
+                 a.tipo==='hoje' ? 'Vence HOJE' : 'Vence amanhã';
+    const cor = a.tipo==='atrasado' ? '#ff8a8a' : '#ffc56b';
+    let btnWhats = '';
+    if(tel){
+      const msg = encodeURIComponent(
+        `Olá ${c.cliente_nome}, tudo bem? Aqui é a TL Ferragens. ` +
+        `Passando pra lembrar do pagamento de ${fmt(c.valor)} (${nomeFormaPagamento(c.forma_pagamento)}) ` +
+        `do pedido nº ${String(c.numero_orcamento||'').padStart(4,'0')}. Qualquer dúvida estou à disposição!`
+      );
+      btnWhats = `<a href="https://wa.me/55${tel}?text=${msg}" target="_blank" class="btn" style="background:#25D366;color:#fff;padding:5px 10px;font-size:11px;text-decoration:none">💬 WhatsApp</a>`;
+    }
+    html += `
+      <div class="alerta-item" style="flex-direction:column;align-items:stretch;cursor:default">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;margin-bottom:6px">
+          <div class="alerta-item-info">
+            <div class="alerta-item-forn">${c.cliente_nome} <span style="font-weight:400;color:var(--muted);font-size:11px">· ${nomeFormaPagamento(c.forma_pagamento)}</span></div>
+            <div class="alerta-item-data" style="color:${cor}">${txtDia} (${formatarData(a.venc)})</div>
+            <div class="alerta-item-data">Pedido nº ${String(c.numero_orcamento||'').padStart(4,'0')}${c.cliente_telefone ? ' · 📞 '+c.cliente_telefone : ''}</div>
+          </div>
+          <div class="alerta-item-valor">${fmt(c.valor)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${btnWhats}
+          <button class="btn green" onclick="marcarReceberPago(${c.id})" style="padding:5px 10px;font-size:11px">✓ Recebi</button>
+        </div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+  banner.innerHTML = html;
+  banner.classList.remove('hidden');
+}
+
+function fecharAlertaReceber(){
+  localStorage.setItem('alertaReceberFechado', new Date().toISOString().slice(0,10));
+  document.getElementById('alertaReceber').classList.add('hidden');
+}
 // ====================================================
 // NOTAS FISCAIS ELETRÔNICAS (NFe) - Focus NFe
 // ====================================================
